@@ -145,14 +145,14 @@
 <h4>
 <a name="fswritefd-buffer-offset-length-position-callback" class="anchor" href="#fswritefd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.write(fd, buffer, offset, length, position, callback)</h4>
 
-<p>Write bytes from <code>buffer</code> to the file specified by <code>fd</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be written. The <code>position</code> refers to the offset from the beginning of the file where this data should be written. If <code>position</code> is null, the data will be written at the current position. See pwrite(2).</p>
+<p>Write bytes from <code>buffer</code> to the file specified by <code>fd</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be written. The <code>position</code> refers to the offset from the beginning of the file where this data should be written. If <code>position</code> is <code>null</code>, the data will be written at the current position. See pwrite(2).</p>
 
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes written.</p>
 
 <h4>
 <a name="fsreadfd-buffer-offset-length-position-callback" class="anchor" href="#fsreadfd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.read(fd, buffer, offset, length, position, callback)</h4>
 
-<p>Read bytes from the file specified by <code>fd</code> into <code>buffer</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be used. The <code>position</code> refers to the offset from the beginning of the file where this data should be read. If <code>position</code> is null, the data will be written at the current position. See pread(2).</p>
+<p>Read bytes from the file specified by <code>fd</code> into <code>buffer</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be used. The <code>position</code> refers to the offset from the beginning of the file where this data should be read. If <code>position</code> is <code>null</code>, the data will be written at the current position. See pread(2).</p>
 
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes read.</p>
 
