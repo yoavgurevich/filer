@@ -138,7 +138,28 @@
 <code>'a'</code>: Open file for appending. The file is created if it does not exist.</li>
 <li>
 <code>'a+'</code>: Open file for reading and appending. The file is created if it does not exist.</li>
-</ul><p>Unlike node.js, IDBFS does not accept the optional <code>mode</code> parameter since it doesn't yet implement file permissions.</p>
+</ul><p>Callback gets <code>(error, fd)</code>, where <code>fd</code> is the file descriptor.</p>
+
+<p>Unlike node.js, IDBFS does not accept the optional <code>mode</code> parameter since it doesn't yet implement file permissions.</p>
+
+<h4>
+<a name="fswritefd-buffer-offset-length-position-callback" class="anchor" href="#fswritefd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.write(fd, buffer, offset, length, position, callback)</h4>
+
+<p>Write bytes from <code>buffer</code> to the file specified by <code>fd</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be written. The <code>position</code> refers to the offset from the beginning of the file where this data should be written. If <code>position</code> is null, the data will be written at the current position. See pwrite(2).</p>
+
+<p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes written.</p>
+
+<h4>
+<a name="fsreadfd-buffer-offset-length-position-callback" class="anchor" href="#fsreadfd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.read(fd, buffer, offset, length, position, callback)</h4>
+
+<p>Read bytes from the file specified by <code>fd</code> into <code>buffer</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be used. The <code>position</code> refers to the offset from the beginning of the file where this data should be read. If <code>position</code> is null, the data will be written at the current position. See pread(2).</p>
+
+<p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes read.</p>
+
+<h4>
+<a name="fslseekfd-offset-whence-callback" class="anchor" href="#fslseekfd-offset-whence-callback"><span class="octicon octicon-link"></span></a>fs.lseek(fd, offset, whence, callback)</h4>
+
+<p>Asynchronous lseek(2), where <code>whence</code> can be <code>SET</code>, <code>CUR</code>, or <code>END</code>. Callback gets <code>(error, pos)</code>, where <code>pos</code> is the resulting offset, in bytes, from the beginning of the file.</p>
       </section>
     </div>
 
