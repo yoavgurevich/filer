@@ -62,6 +62,83 @@
 </code></pre>
 
 <p>As with node.js, there is no guarantee that file system operations will be executed in the order they are invoked. Ensure proper ordering by chaining operations in callbacks.</p>
+
+<h3>
+<a name="api-reference" class="anchor" href="#api-reference"><span class="octicon octicon-link"></span></a>API Reference</h3>
+
+<p>Callbacks for methods that accept them are non-optional. The first callback parameter is reserved for passing errors. It will be <code>undefined</code> if no errors occurred and should always be checked.</p>
+
+<h4>
+<a name="idbfsfilesystemname-flags" class="anchor" href="#idbfsfilesystemname-flags"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem(name, flags)</h4>
+
+<p>File system constructor, invoked to open an existing file system or create a new one. Accepts a name and optional flags. Use <code>'FORMAT'</code> to force IDBFS for format the file system.</p>
+
+<h4>
+<a name="fsstatpath-callback" class="anchor" href="#fsstatpath-callback"><span class="octicon octicon-link"></span></a>fs.stat(path, callback)</h4>
+
+<p>Asynchronous stat(2). Callback gets <code>(error, stats)</code>, where <code>stats</code> is an object like</p>
+
+<pre><code>    {
+      node: &lt;string&gt; // internal node id (unique)
+      dev: &lt;string&gt; // file system name
+      size: &lt;number&gt; // file size in bytes
+      nlinks: &lt;number&gt; // number of links
+      atime: &lt;number&gt; // last access time
+      mtime: &lt;number&gt; // last modified time
+      ctime: &lt;number&gt; // creation time
+      type: &lt;string&gt; // file type (FILE, DIRECTORY, ...)
+    }
+</code></pre>
+
+<h4>
+<a name="fsfstatfd-callback" class="anchor" href="#fsfstatfd-callback"><span class="octicon octicon-link"></span></a>fs.fstat(fd, callback)</h4>
+
+<p>Asynchronous stat(2). Callback gets <code>(error, stats)</code>. See <code>fs.stat</code>.</p>
+
+<h4>
+<a name="fslinkoldpath-newpath-callback" class="anchor" href="#fslinkoldpath-newpath-callback"><span class="octicon octicon-link"></span></a>fs.link(oldpath, newpath, callback)</h4>
+
+<p>Asynchronous link(2). Callback gets no additional agruments.</p>
+
+<h4>
+<a name="fsunlinkpath-callback" class="anchor" href="#fsunlinkpath-callback"><span class="octicon octicon-link"></span></a>fs.unlink(path, callback)</h4>
+
+<p>Asynchronous unlink(2). Callback gets no additional agruments.</p>
+
+<h4>
+<a name="fsrmdirpath-callback" class="anchor" href="#fsrmdirpath-callback"><span class="octicon octicon-link"></span></a>fs.rmdir(path, callback)</h4>
+
+<p>Asynchronous rmdir(2). Callback gets no additional agruments.</p>
+
+<h4>
+<a name="fsmkdirpath-callback" class="anchor" href="#fsmkdirpath-callback"><span class="octicon octicon-link"></span></a>fs.mkdir(path, callback)</h4>
+
+<p>Asynchronous mkdir(2). Callback gets no additional agruments.</p>
+
+<h4>
+<a name="fsclosefd-callback" class="anchor" href="#fsclosefd-callback"><span class="octicon octicon-link"></span></a>fs.close(fd, callback)</h4>
+
+<p>Asynchronous close(2). Callback gets no additional agruments.</p>
+
+<h4>
+<a name="fsopenpath-flags-callback" class="anchor" href="#fsopenpath-flags-callback"><span class="octicon octicon-link"></span></a>fs.open(path, flags, callback)</h4>
+
+<p>Asynchronous open(2). Flags can be</p>
+
+<ul>
+<li>
+<code>'r'</code>: Open file for reading. An exception occurs if the file does not exist.</li>
+<li>
+<code>'r+'</code>: Open file for reading and writing. An exception occurs if the file does not exist.</li>
+<li>
+<code>'w'</code>: Open file for writing. The file is created (if it does not exist) or truncated (if it exists).</li>
+<li>
+<code>'w+'</code>: Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).</li>
+<li>
+<code>'a'</code>: Open file for appending. The file is created if it does not exist.</li>
+<li>
+<code>'a+'</code>: Open file for reading and appending. The file is created if it does not exist.</li>
+</ul><p>Unlike node.js, IDBFS does not accept the optional <code>mode</code> parameter since it doesn't yet implement file permissions.</p>
       </section>
     </div>
 
