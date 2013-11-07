@@ -165,6 +165,11 @@
 <a name="fslseekfd-offset-whence-callback" class="anchor" href="#fslseekfd-offset-whence-callback"><span class="octicon octicon-link"></span></a>fs.lseek(fd, offset, whence, callback)</h4>
 
 <p>Asynchronous lseek(2), where <code>whence</code> can be <code>SET</code>, <code>CUR</code>, or <code>END</code>. Callback gets <code>(error, pos)</code>, where <code>pos</code> is the resulting offset, in bytes, from the beginning of the file.</p>
+
+<h4>
+<a name="fsreaddirpath-callback" class="anchor" href="#fsreaddirpath-callback"><span class="octicon octicon-link"></span></a>fs.readdir(path, callback)</h4>
+
+<p>Asynchronous readdir(3). Reads the contents of a directory. Callback gets <code>(error, files)</code>, where <code>files</code> is an array containing the names of each file in the directory, excluding <code>.</code> and <code>..</code>.</p>
       </section>
     </div>
 
