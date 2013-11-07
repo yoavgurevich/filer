@@ -5798,7 +5798,7 @@ define('src/constants',['require'],function(require) {
   };
 
 });
-define('src/file-system',['require','lodash','when','src/path','src/path','src/path','src/shared','src/shared','src/shared','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants'],function(require) {
+define('src/fs',['require','lodash','when','src/path','src/path','src/path','src/shared','src/shared','src/shared','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants'],function(require) {
 
   var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
 
@@ -6548,6 +6548,35 @@ define('src/file-system',['require','lodash','when','src/path','src/path','src/p
     }
   };
 
+  function read_directory(objectStore, path, callback) {
+    path = normalize(path);
+    var name = basename(path);
+
+    var directoryNode;
+    var directoryData;
+
+    find_node(objectStore, path, read_directory_data);
+
+    function read_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryNode = result;
+        read_object(objectStore, directoryNode.data, handle_directory_data);
+      }
+    };
+
+    function handle_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryData = result;
+        var files = Object.keys(directoryData);
+        callback(undefined, files);
+      }
+    };
+  };
+
   /*
    * FileSystem
    */
@@ -7059,7 +7088,37 @@ define('src/file-system',['require','lodash','when','src/path','src/path','src/p
     );
   };
   FileSystem.prototype.readdir = function readdir(path, callback) {
+    var that = this;
+    this.promise.then(
+      function() {
+        var deferred = when.defer();
+        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
+        var files = transaction.objectStore(FILE_STORE_NAME);
 
+        function check_result(error, files) {
+          if(error) {
+            // if(transaction.error) transaction.abort();
+            deferred.reject(error);
+          } else {
+            deferred.resolve(files);
+          }
+        };
+
+        read_directory(files, path, check_result);
+
+        deferred.promise.then(
+          function(result) {
+            callback(undefined, result);
+          },
+          function(error) {
+            callback(error);
+          }
+        );
+      },
+      function() {
+        callback(new EFileSystemError('unknown error'));
+      }
+    );
   };
   FileSystem.prototype.utimes = function utimes(path, atime, mtime, callback) {
 
@@ -7092,7 +7151,7 @@ define('src/file-system',['require','lodash','when','src/path','src/path','src/p
   };
 
 });
-  var IDBFS = require( "src/file-system" );
+  var IDBFS = require( "src/fs" );
 
   return IDBFS;
 
