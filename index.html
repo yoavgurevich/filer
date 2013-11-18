@@ -164,11 +164,45 @@
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes written.</p>
 
 <h4>
+<a name="fswritefilefilename-data-options-callback" class="anchor" href="#fswritefilefilename-data-options-callback"><span class="octicon octicon-link"></span></a>fs.writeFile(filename, data, [options], callback)</h4>
+
+<p>Asynchronously writes data to a file. <code>data</code> can be a string or a buffer, in which case any encoding option is ignored. The <code>options</code> argument is optional, and can take the form <code>"utf8"</code> (i.e., an encoding) or be an object literal: <code>{ encoding: "utf8", flag: "w" }</code>. If no encoding is specified, and <code>data</code> is a string, the encoding defaults to <code>'utf8'</code>.  The callback gets <code>(error)</code>.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// Write UTF8 text file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">writeFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="s2">"...data..."</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+<span class="p">});</span>
+
+<span class="c1">// Write binary file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">writeFile</span><span class="p">(</span><span class="s1">'/myfile'</span><span class="p">,</span> <span class="nx">buffer</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+<span class="p">});</span>
+</pre></div>
+
+<h4>
 <a name="fsreadfd-buffer-offset-length-position-callback" class="anchor" href="#fsreadfd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.read(fd, buffer, offset, length, position, callback)</h4>
 
 <p>Read bytes from the file specified by <code>fd</code> into <code>buffer</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be used. The <code>position</code> refers to the offset from the beginning of the file where this data should be read. If <code>position</code> is <code>null</code>, the data will be written at the current position. See pread(2).</p>
 
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes read.</p>
+
+<h4>
+<a name="fsreadfilefilename-options-callback" class="anchor" href="#fsreadfilefilename-options-callback"><span class="octicon octicon-link"></span></a>fs.readFile(filename, [options], callback)</h4>
+
+<p>Asynchronously reads the entire contents of a file. The <code>options</code> argument is optional, and can take the form <code>"utf8"</code> (i.e., an encoding) or be an object literal: <code>{ encoding: "utf8", flag: "r" }</code>. If no encoding is specified, the raw binary buffer is returned on the callback. The callback gets <code>(error, data)</code>, where data is the contents of the file.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// Read UTF8 text file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="s1">'utf8'</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="c1">// Read binary file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
 
 <h4>
 <a name="fslseekfd-offset-whence-callback" class="anchor" href="#fslseekfd-offset-whence-callback"><span class="octicon octicon-link"></span></a>fs.lseek(fd, offset, whence, callback)</h4>
