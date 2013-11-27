@@ -4636,830 +4636,6 @@ define("build/almond", function(){});
   }
 }(this));
 
-/** @license MIT License (c) copyright 2011-2013 original author or authors */
-
-/**
- * A lightweight CommonJS Promises/A and when() implementation
- * when is part of the cujo.js family of libraries (http://cujojs.com/)
- *
- * Licensed under the MIT License at:
- * http://www.opensource.org/licenses/mit-license.php
- *
- * @author Brian Cavalier
- * @author John Hann
- * @version 2.1.0
- */
-(function(define, global) { 
-define('when',[],function () {
-
-	// Public API
-
-	when.defer     = defer;      // Create a deferred
-	when.resolve   = resolve;    // Create a resolved promise
-	when.reject    = reject;     // Create a rejected promise
-
-	when.join      = join;       // Join 2 or more promises
-
-	when.all       = all;        // Resolve a list of promises
-	when.map       = map;        // Array.map() for promises
-	when.reduce    = reduce;     // Array.reduce() for promises
-	when.settle    = settle;     // Settle a list of promises
-
-	when.any       = any;        // One-winner race
-	when.some      = some;       // Multi-winner race
-
-	when.isPromise = isPromise;  // Determine if a thing is a promise
-
-	when.promise   = promise;    // EXPERIMENTAL: May change. Use at your own risk
-
-	/**
-	 * Register an observer for a promise or immediate value.
-	 *
-	 * @param {*} promiseOrValue
-	 * @param {function?} [onFulfilled] callback to be called when promiseOrValue is
-	 *   successfully fulfilled.  If promiseOrValue is an immediate value, callback
-	 *   will be invoked immediately.
-	 * @param {function?} [onRejected] callback to be called when promiseOrValue is
-	 *   rejected.
-	 * @param {function?} [onProgress] callback to be called when progress updates
-	 *   are issued for promiseOrValue.
-	 * @returns {Promise} a new {@link Promise} that will complete with the return
-	 *   value of callback or errback or the completion value of promiseOrValue if
-	 *   callback and/or errback is not supplied.
-	 */
-	function when(promiseOrValue, onFulfilled, onRejected, onProgress) {
-		// Get a trusted promise for the input promiseOrValue, and then
-		// register promise handlers
-		return resolve(promiseOrValue).then(onFulfilled, onRejected, onProgress);
-	}
-
-	/**
-	 * Trusted Promise constructor.  A Promise created from this constructor is
-	 * a trusted when.js promise.  Any other duck-typed promise is considered
-	 * untrusted.
-	 * @constructor
-	 * @name Promise
-	 */
-	function Promise(then, inspect) {
-		this.then = then;
-		this.inspect = inspect;
-	}
-
-	Promise.prototype = {
-		/**
-		 * Register a rejection handler.  Shortcut for .then(undefined, onRejected)
-		 * @param {function?} onRejected
-		 * @return {Promise}
-		 */
-		otherwise: function(onRejected) {
-			return this.then(undef, onRejected);
-		},
-
-		/**
-		 * Ensures that onFulfilledOrRejected will be called regardless of whether
-		 * this promise is fulfilled or rejected.  onFulfilledOrRejected WILL NOT
-		 * receive the promises' value or reason.  Any returned value will be disregarded.
-		 * onFulfilledOrRejected may throw or return a rejected promise to signal
-		 * an additional error.
-		 * @param {function} onFulfilledOrRejected handler to be called regardless of
-		 *  fulfillment or rejection
-		 * @returns {Promise}
-		 */
-		ensure: function(onFulfilledOrRejected) {
-			return this.then(injectHandler, injectHandler).yield(this);
-
-			function injectHandler() {
-				return resolve(onFulfilledOrRejected());
-			}
-		},
-
-		/**
-		 * Shortcut for .then(function() { return value; })
-		 * @param  {*} value
-		 * @return {Promise} a promise that:
-		 *  - is fulfilled if value is not a promise, or
-		 *  - if value is a promise, will fulfill with its value, or reject
-		 *    with its reason.
-		 */
-		'yield': function(value) {
-			return this.then(function() {
-				return value;
-			});
-		},
-
-		/**
-		 * Assumes that this promise will fulfill with an array, and arranges
-		 * for the onFulfilled to be called with the array as its argument list
-		 * i.e. onFulfilled.apply(undefined, array).
-		 * @param {function} onFulfilled function to receive spread arguments
-		 * @return {Promise}
-		 */
-		spread: function(onFulfilled) {
-			return this.then(function(array) {
-				// array may contain promises, so resolve its contents.
-				return all(array, function(array) {
-					return onFulfilled.apply(undef, array);
-				});
-			});
-		},
-
-		/**
-		 * Shortcut for .then(onFulfilledOrRejected, onFulfilledOrRejected)
-		 * @deprecated
-		 */
-		always: function(onFulfilledOrRejected, onProgress) {
-			return this.then(onFulfilledOrRejected, onFulfilledOrRejected, onProgress);
-		}
-	};
-
-	/**
-	 * Returns a resolved promise. The returned promise will be
-	 *  - fulfilled with promiseOrValue if it is a value, or
-	 *  - if promiseOrValue is a promise
-	 *    - fulfilled with promiseOrValue's value after it is fulfilled
-	 *    - rejected with promiseOrValue's reason after it is rejected
-	 * @param  {*} value
-	 * @return {Promise}
-	 */
-	function resolve(value) {
-		return promise(function(resolve) {
-			resolve(value);
-		});
-	}
-
-	/**
-	 * Returns a rejected promise for the supplied promiseOrValue.  The returned
-	 * promise will be rejected with:
-	 * - promiseOrValue, if it is a value, or
-	 * - if promiseOrValue is a promise
-	 *   - promiseOrValue's value after it is fulfilled
-	 *   - promiseOrValue's reason after it is rejected
-	 * @param {*} promiseOrValue the rejected value of the returned {@link Promise}
-	 * @return {Promise} rejected {@link Promise}
-	 */
-	function reject(promiseOrValue) {
-		return when(promiseOrValue, rejected);
-	}
-
-	/**
-	 * Creates a new Deferred with fully isolated resolver and promise parts,
-	 * either or both of which may be given out safely to consumers.
-	 * The resolver has resolve, reject, and progress.  The promise
-	 * only has then.
-	 *
-	 * @return {{
-	 * promise: Promise,
-	 * resolve: function:Promise,
-	 * reject: function:Promise,
-	 * notify: function:Promise
-	 * resolver: {
-	 *	resolve: function:Promise,
-	 *	reject: function:Promise,
-	 *	notify: function:Promise
-	 * }}}
-	 */
-	function defer() {
-		var deferred, pending, resolved;
-
-		// Optimize object shape
-		deferred = {
-			promise: undef, resolve: undef, reject: undef, notify: undef,
-			resolver: { resolve: undef, reject: undef, notify: undef }
-		};
-
-		deferred.promise = pending = promise(makeDeferred);
-
-		return deferred;
-
-		function makeDeferred(resolvePending, rejectPending, notifyPending) {
-			deferred.resolve = deferred.resolver.resolve = function(value) {
-				if(resolved) {
-					return resolve(value);
-				}
-				resolved = true;
-				resolvePending(value);
-				return pending;
-			};
-
-			deferred.reject  = deferred.resolver.reject  = function(reason) {
-				if(resolved) {
-					return resolve(rejected(reason));
-				}
-				resolved = true;
-				rejectPending(reason);
-				return pending;
-			};
-
-			deferred.notify  = deferred.resolver.notify  = function(update) {
-				notifyPending(update);
-				return update;
-			};
-		}
-	}
-
-	/**
-	 * Creates a new promise whose fate is determined by resolver.
-	 * @private (for now)
-	 * @param {function} resolver function(resolve, reject, notify)
-	 * @returns {Promise} promise whose fate is determine by resolver
-	 */
-	function promise(resolver) {
-		var value, handlers = [];
-
-		// Call the provider resolver to seal the promise's fate
-		try {
-			resolver(promiseResolve, promiseReject, promiseNotify);
-		} catch(e) {
-			promiseReject(e);
-		}
-
-		// Return the promise
-		return new Promise(then, inspect);
-
-		/**
-		 * Register handlers for this promise.
-		 * @param [onFulfilled] {Function} fulfillment handler
-		 * @param [onRejected] {Function} rejection handler
-		 * @param [onProgress] {Function} progress handler
-		 * @return {Promise} new Promise
-		 */
-		function then(onFulfilled, onRejected, onProgress) {
-			return promise(function(resolve, reject, notify) {
-				handlers
-				// Call handlers later, after resolution
-				? handlers.push(function(value) {
-					value.then(onFulfilled, onRejected, onProgress)
-						.then(resolve, reject, notify);
-				})
-				// Call handlers soon, but not in the current stack
-				: enqueue(function() {
-					value.then(onFulfilled, onRejected, onProgress)
-						.then(resolve, reject, notify);
-				});
-			});
-		}
-
-		function inspect() {
-			return value ? value.inspect() : toPendingState();
-		}
-
-		/**
-		 * Transition from pre-resolution state to post-resolution state, notifying
-		 * all listeners of the ultimate fulfillment or rejection
-		 * @param {*|Promise} val resolution value
-		 */
-		function promiseResolve(val) {
-			if(!handlers) {
-				return;
-			}
-
-			value = coerce(val);
-			scheduleHandlers(handlers, value);
-
-			handlers = undef;
-		}
-
-		/**
-		 * Reject this promise with the supplied reason, which will be used verbatim.
-		 * @param {*} reason reason for the rejection
-		 */
-		function promiseReject(reason) {
-			promiseResolve(rejected(reason));
-		}
-
-		/**
-		 * Issue a progress event, notifying all progress listeners
-		 * @param {*} update progress event payload to pass to all listeners
-		 */
-		function promiseNotify(update) {
-			if(handlers) {
-				scheduleHandlers(handlers, progressing(update));
-			}
-		}
-	}
-
-	/**
-	 * Coerces x to a trusted Promise
-	 *
-	 * @private
-	 * @param {*} x thing to coerce
-	 * @returns {Promise} Guaranteed to return a trusted Promise.  If x
-	 *   is trusted, returns x, otherwise, returns a new, trusted, already-resolved
-	 *   Promise whose resolution value is:
-	 *   * the resolution value of x if it's a foreign promise, or
-	 *   * x if it's a value
-	 */
-	function coerce(x) {
-		if(x instanceof Promise) {
-			return x;
-		}
-
-		if (!(x === Object(x) && 'then' in x)) {
-			return fulfilled(x);
-		}
-
-		return promise(function(resolve, reject, notify) {
-			enqueue(function() {
-				try {
-					// We must check and assimilate in the same tick, but not the
-					// current tick, careful only to access promiseOrValue.then once.
-					var untrustedThen = x.then;
-
-					if(typeof untrustedThen === 'function') {
-						fcall(untrustedThen, x, resolve, reject, notify);
-					} else {
-						// It's a value, create a fulfilled wrapper
-						resolve(fulfilled(x));
-					}
-
-				} catch(e) {
-					// Something went wrong, reject
-					reject(e);
-				}
-			});
-		});
-	}
-
-	/**
-	 * Create an already-fulfilled promise for the supplied value
-	 * @private
-	 * @param {*} value
-	 * @return {Promise} fulfilled promise
-	 */
-	function fulfilled(value) {
-		var self = new Promise(function (onFulfilled) {
-			try {
-				return typeof onFulfilled == 'function'
-					? coerce(onFulfilled(value)) : self;
-			} catch (e) {
-				return rejected(e);
-			}
-		}, function() {
-			return toFulfilledState(value);
-		});
-
-		return self;
-	}
-
-	/**
-	 * Create an already-rejected promise with the supplied rejection reason.
-	 * @private
-	 * @param {*} reason
-	 * @return {Promise} rejected promise
-	 */
-	function rejected(reason) {
-		var self = new Promise(function (_, onRejected) {
-			try {
-				return typeof onRejected == 'function'
-					? coerce(onRejected(reason)) : self;
-			} catch (e) {
-				return rejected(e);
-			}
-		}, function() {
-			return toRejectedState(reason);
-		});
-
-		return self;
-	}
-
-	/**
-	 * Create a progress promise with the supplied update.
-	 * @private
-	 * @param {*} update
-	 * @return {Promise} progress promise
-	 */
-	function progressing(update) {
-		var self = new Promise(function (_, __, onProgress) {
-			try {
-				return typeof onProgress == 'function'
-					? progressing(onProgress(update)) : self;
-			} catch (e) {
-				return progressing(e);
-			}
-		});
-
-		return self;
-	}
-
-	/**
-	 * Schedule a task that will process a list of handlers
-	 * in the next queue drain run.
-	 * @private
-	 * @param {Array} handlers queue of handlers to execute
-	 * @param {*} value passed as the only arg to each handler
-	 */
-	function scheduleHandlers(handlers, value) {
-		enqueue(function() {
-			var handler, i = 0;
-			while (handler = handlers[i++]) {
-				handler(value);
-			}
-		});
-	}
-
-	/**
-	 * Determines if promiseOrValue is a promise or not
-	 *
-	 * @param {*} promiseOrValue anything
-	 * @returns {boolean} true if promiseOrValue is a {@link Promise}
-	 */
-	function isPromise(promiseOrValue) {
-		return promiseOrValue && typeof promiseOrValue.then === 'function';
-	}
-
-	/**
-	 * Initiates a competitive race, returning a promise that will resolve when
-	 * howMany of the supplied promisesOrValues have resolved, or will reject when
-	 * it becomes impossible for howMany to resolve, for example, when
-	 * (promisesOrValues.length - howMany) + 1 input promises reject.
-	 *
-	 * @param {Array} promisesOrValues array of anything, may contain a mix
-	 *      of promises and values
-	 * @param howMany {number} number of promisesOrValues to resolve
-	 * @param {function?} [onFulfilled] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onRejected] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onProgress] DEPRECATED, use returnedPromise.then()
-	 * @returns {Promise} promise that will resolve to an array of howMany values that
-	 *  resolved first, or will reject with an array of
-	 *  (promisesOrValues.length - howMany) + 1 rejection reasons.
-	 */
-	function some(promisesOrValues, howMany, onFulfilled, onRejected, onProgress) {
-
-		return when(promisesOrValues, function(promisesOrValues) {
-
-			return promise(resolveSome).then(onFulfilled, onRejected, onProgress);
-
-			function resolveSome(resolve, reject, notify) {
-				var toResolve, toReject, values, reasons, fulfillOne, rejectOne, len, i;
-
-				len = promisesOrValues.length >>> 0;
-
-				toResolve = Math.max(0, Math.min(howMany, len));
-				values = [];
-
-				toReject = (len - toResolve) + 1;
-				reasons = [];
-
-				// No items in the input, resolve immediately
-				if (!toResolve) {
-					resolve(values);
-
-				} else {
-					rejectOne = function(reason) {
-						reasons.push(reason);
-						if(!--toReject) {
-							fulfillOne = rejectOne = identity;
-							reject(reasons);
-						}
-					};
-
-					fulfillOne = function(val) {
-						// This orders the values based on promise resolution order
-						values.push(val);
-						if (!--toResolve) {
-							fulfillOne = rejectOne = identity;
-							resolve(values);
-						}
-					};
-
-					for(i = 0; i < len; ++i) {
-						if(i in promisesOrValues) {
-							when(promisesOrValues[i], fulfiller, rejecter, notify);
-						}
-					}
-				}
-
-				function rejecter(reason) {
-					rejectOne(reason);
-				}
-
-				function fulfiller(val) {
-					fulfillOne(val);
-				}
-			}
-		});
-	}
-
-	/**
-	 * Initiates a competitive race, returning a promise that will resolve when
-	 * any one of the supplied promisesOrValues has resolved or will reject when
-	 * *all* promisesOrValues have rejected.
-	 *
-	 * @param {Array|Promise} promisesOrValues array of anything, may contain a mix
-	 *      of {@link Promise}s and values
-	 * @param {function?} [onFulfilled] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onRejected] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onProgress] DEPRECATED, use returnedPromise.then()
-	 * @returns {Promise} promise that will resolve to the value that resolved first, or
-	 * will reject with an array of all rejected inputs.
-	 */
-	function any(promisesOrValues, onFulfilled, onRejected, onProgress) {
-
-		function unwrapSingleResult(val) {
-			return onFulfilled ? onFulfilled(val[0]) : val[0];
-		}
-
-		return some(promisesOrValues, 1, unwrapSingleResult, onRejected, onProgress);
-	}
-
-	/**
-	 * Return a promise that will resolve only once all the supplied promisesOrValues
-	 * have resolved. The resolution value of the returned promise will be an array
-	 * containing the resolution values of each of the promisesOrValues.
-	 * @memberOf when
-	 *
-	 * @param {Array|Promise} promisesOrValues array of anything, may contain a mix
-	 *      of {@link Promise}s and values
-	 * @param {function?} [onFulfilled] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onRejected] DEPRECATED, use returnedPromise.then()
-	 * @param {function?} [onProgress] DEPRECATED, use returnedPromise.then()
-	 * @returns {Promise}
-	 */
-	function all(promisesOrValues, onFulfilled, onRejected, onProgress) {
-		return _map(promisesOrValues, identity).then(onFulfilled, onRejected, onProgress);
-	}
-
-	/**
-	 * Joins multiple promises into a single returned promise.
-	 * @return {Promise} a promise that will fulfill when *all* the input promises
-	 * have fulfilled, or will reject when *any one* of the input promises rejects.
-	 */
-	function join(/* ...promises */) {
-		return _map(arguments, identity);
-	}
-
-	/**
-	 * Settles all input promises such that they are guaranteed not to
-	 * be pending once the returned promise fulfills. The returned promise
-	 * will always fulfill, except in the case where `array` is a promise
-	 * that rejects.
-	 * @param {Array|Promise} array or promise for array of promises to settle
-	 * @returns {Promise} promise that always fulfills with an array of
-	 *  outcome snapshots for each input promise.
-	 */
-	function settle(array) {
-		return _map(array, toFulfilledState, toRejectedState);
-	}
-
-	/**
-	 * Promise-aware array map function, similar to `Array.prototype.map()`,
-	 * but input array may contain promises or values.
-	 * @param {Array|Promise} array array of anything, may contain promises and values
-	 * @param {function} mapFunc map function which may return a promise or value
-	 * @returns {Promise} promise that will fulfill with an array of mapped values
-	 *  or reject if any input promise rejects.
-	 */
-	function map(array, mapFunc) {
-		return _map(array, mapFunc);
-	}
-
-	/**
-	 * Internal map that allows a fallback to handle rejections
-	 * @param {Array|Promise} array array of anything, may contain promises and values
-	 * @param {function} mapFunc map function which may return a promise or value
-	 * @param {function?} fallback function to handle rejected promises
-	 * @returns {Promise} promise that will fulfill with an array of mapped values
-	 *  or reject if any input promise rejects.
-	 */
-	function _map(array, mapFunc, fallback) {
-		return when(array, function(array) {
-
-			return promise(resolveMap);
-
-			function resolveMap(resolve, reject, notify) {
-				var results, len, toResolve, resolveOne, i;
-
-				// Since we know the resulting length, we can preallocate the results
-				// array to avoid array expansions.
-				toResolve = len = array.length >>> 0;
-				results = [];
-
-				if(!toResolve) {
-					resolve(results);
-					return;
-				}
-
-				resolveOne = function(item, i) {
-					when(item, mapFunc, fallback).then(function(mapped) {
-						results[i] = mapped;
-
-						if(!--toResolve) {
-							resolve(results);
-						}
-					}, reject, notify);
-				};
-
-				// Since mapFunc may be async, get all invocations of it into flight
-				for(i = 0; i < len; i++) {
-					if(i in array) {
-						resolveOne(array[i], i);
-					} else {
-						--toResolve;
-					}
-				}
-			}
-		});
-	}
-
-	/**
-	 * Traditional reduce function, similar to `Array.prototype.reduce()`, but
-	 * input may contain promises and/or values, and reduceFunc
-	 * may return either a value or a promise, *and* initialValue may
-	 * be a promise for the starting value.
-	 *
-	 * @param {Array|Promise} promise array or promise for an array of anything,
-	 *      may contain a mix of promises and values.
-	 * @param {function} reduceFunc reduce function reduce(currentValue, nextValue, index, total),
-	 *      where total is the total number of items being reduced, and will be the same
-	 *      in each call to reduceFunc.
-	 * @returns {Promise} that will resolve to the final reduced value
-	 */
-	function reduce(promise, reduceFunc /*, initialValue */) {
-		var args = fcall(slice, arguments, 1);
-
-		return when(promise, function(array) {
-			var total;
-
-			total = array.length;
-
-			// Wrap the supplied reduceFunc with one that handles promises and then
-			// delegates to the supplied.
-			args[0] = function (current, val, i) {
-				return when(current, function (c) {
-					return when(val, function (value) {
-						return reduceFunc(c, value, i, total);
-					});
-				});
-			};
-
-			return reduceArray.apply(array, args);
-		});
-	}
-
-	// Snapshot states
-
-	/**
-	 * Creates a fulfilled state snapshot
-	 * @private
-	 * @param {*} x any value
-	 * @returns {{state:'fulfilled',value:*}}
-	 */
-	function toFulfilledState(x) {
-		return { state: 'fulfilled', value: x };
-	}
-
-	/**
-	 * Creates a rejected state snapshot
-	 * @private
-	 * @param {*} x any reason
-	 * @returns {{state:'rejected',reason:*}}
-	 */
-	function toRejectedState(x) {
-		return { state: 'rejected', reason: x };
-	}
-
-	/**
-	 * Creates a pending state snapshot
-	 * @private
-	 * @returns {{state:'pending'}}
-	 */
-	function toPendingState() {
-		return { state: 'pending' };
-	}
-
-	//
-	// Utilities, etc.
-	//
-
-	var reduceArray, slice, fcall, nextTick, handlerQueue,
-		setTimeout, funcProto, call, arrayProto, undef;
-
-	//
-	// Shared handler queue processing
-	//
-	// Credit to Twisol (https://github.com/Twisol) for suggesting
-	// this type of extensible queue + trampoline approach for
-	// next-tick conflation.
-
-	handlerQueue = [];
-
-	/**
-	 * Enqueue a task. If the queue is not currently scheduled to be
-	 * drained, schedule it.
-	 * @param {function} task
-	 */
-	function enqueue(task) {
-		if(handlerQueue.push(task) === 1) {
-			scheduleDrainQueue();
-		}
-	}
-
-	/**
-	 * Schedule the queue to be drained after the stack has cleared.
-	 */
-	function scheduleDrainQueue() {
-		nextTick(drainQueue);
-	}
-
-	/**
-	 * Drain the handler queue entirely, being careful to allow the
-	 * queue to be extended while it is being processed, and to continue
-	 * processing until it is truly empty.
-	 */
-	function drainQueue() {
-		var task, i = 0;
-
-		while(task = handlerQueue[i++]) {
-			task();
-		}
-
-		handlerQueue = [];
-	}
-
-	//
-	// Capture function and array utils
-	//
-	/*global setImmediate,process,vertx*/
-
-	// capture setTimeout to avoid being caught by fake timers used in time based tests
-	setTimeout = global.setTimeout;
-	// Prefer setImmediate, cascade to node, vertx and finally setTimeout
-	nextTick = typeof setImmediate === 'function' ? setImmediate.bind(global)
-		: typeof process === 'object' && process.nextTick ? process.nextTick
-		: typeof vertx === 'object' ? vertx.runOnLoop // vert.x
-			: function(task) { setTimeout(task, 0); }; // fallback
-	// nextTick = function(task) { task.call(); };
-
-	// Safe function calls
-	funcProto = Function.prototype;
-	call = funcProto.call;
-	fcall = funcProto.bind
-		? call.bind(call)
-		: function(f, context) {
-			return f.apply(context, slice.call(arguments, 2));
-		};
-
-	// Safe array ops
-	arrayProto = [];
-	slice = arrayProto.slice;
-
-	// ES5 reduce implementation if native not available
-	// See: http://es5.github.com/#x15.4.4.21 as there are many
-	// specifics and edge cases.  ES5 dictates that reduce.length === 1
-	// This implementation deviates from ES5 spec in the following ways:
-	// 1. It does not check if reduceFunc is a Callable
-	reduceArray = arrayProto.reduce ||
-		function(reduceFunc /*, initialValue */) {
-			/*jshint maxcomplexity: 7*/
-			var arr, args, reduced, len, i;
-
-			i = 0;
-			arr = Object(this);
-			len = arr.length >>> 0;
-			args = arguments;
-
-			// If no initialValue, use first item of array (we know length !== 0 here)
-			// and adjust i to start at second item
-			if(args.length <= 1) {
-				// Skip to the first real element in the array
-				for(;;) {
-					if(i in arr) {
-						reduced = arr[i++];
-						break;
-					}
-
-					// If we reached the end of the array without finding any real
-					// elements, it's a TypeError
-					if(++i >= len) {
-						throw new TypeError();
-					}
-				}
-			} else {
-				// If initialValue provided, use it
-				reduced = args[1];
-			}
-
-			// Do the actual reduce
-			for(;i < len; ++i) {
-				if(i in arr) {
-					reduced = reduceFunc(reduced, arr[i], i, arr);
-				}
-			}
-
-			return reduced;
-		};
-
-	function identity(x) {
-		return x;
-	}
-
-	return when;
-});
-})(
-	typeof define === 'function' && define.amd ? define : function (factory) { module.exports = factory(); },
-	this
-);
-
 /*!
  * Shim implementation of the TextEncoder, TextDecoder spec:
  * http://encoding.spec.whatwg.org/#interface-textencoder
@@ -8090,6 +7266,13 @@ define('src/error',['require'],function(require) {
   EIO.prototype.name = "EIO";
   EIO.prototype.constructor = EIO;
 
+  function ELoop(message){
+    this.message = message || '';
+  }
+  ELoop.prototype = new Error();
+  ELoop.prototype.name = "ELoop";
+  ELoop.prototype.constructor = ELoop;
+
   function EFileSystemError(message){
     this.message = message || '';
   }
@@ -8108,7 +7291,8 @@ define('src/error',['require'],function(require) {
     ENotImplemented: ENotImplemented,
     ENotMounted: ENotMounted,
     EInvalid: EInvalid,
-    EIO: EIO
+    EIO: EIO,
+    ELoop: ELoop
   };
 
 });
@@ -8123,7 +7307,8 @@ define('src/constants',['require'],function(require) {
   var O_APPEND = 'APPEND';
 
   return {
-    METADATA_STORE_NAME: 'metadata',
+    FILE_SYSTEM_NAME: 'local',
+
     FILE_STORE_NAME: 'files',
 
     IDB_RO: 'readonly',
@@ -8132,6 +7317,8 @@ define('src/constants',['require'],function(require) {
     MODE_FILE: 'FILE',
     MODE_DIRECTORY: 'DIRECTORY',
     MODE_SYMBOLIC_LINK: 'SYMLINK',
+
+    SYMLOOP_MAX: 10,
 
     BINARY_MIME_TYPE: 'application/octet-stream',
     JSON_MIME_TYPE: 'application/json',
@@ -8158,7 +7345,7 @@ define('src/constants',['require'],function(require) {
       'a': [O_WRITE, O_CREATE, O_APPEND],
       'a+': [O_WRITE, O_READ, O_CREATE, O_APPEND],
       'ax': [O_WRITE, O_CREATE, O_EXCLUSIVE, O_APPEND],
-      'ax+': [O_WRITE, O_READ, O_CREATE, O_EXCLUSIVE, O_APPEND],
+      'ax+': [O_WRITE, O_READ, O_CREATE, O_EXCLUSIVE, O_APPEND]
     },
 
     FS_READY: 'READY',
@@ -8167,12 +7354,202 @@ define('src/constants',['require'],function(require) {
   };
 
 });
-define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/path','src/path','src/path','src/shared','src/shared','src/shared','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants'],function(require) {
+define('src/providers/indexeddb',['require','src/constants','src/constants','src/constants','src/constants'],function(require) {
+  var FILE_SYSTEM_NAME = require('src/constants').FILE_SYSTEM_NAME;
+  var FILE_STORE_NAME = require('src/constants').FILE_STORE_NAME;
 
-  var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+  var indexedDB = window.indexedDB       ||
+                  window.mozIndexedDB    ||
+                  window.webkitIndexedDB ||
+                  window.msIndexedDB;
+
+
+  var IDB_RW = require('src/constants').IDB_RW;
+  var IDB_RO = require('src/constants').IDB_RO;
+
+  function IndexedDBContext(db, mode) {
+    var transaction = db.transaction(FILE_STORE_NAME, mode);
+    this.objectStore = transaction.objectStore(FILE_STORE_NAME);
+  }
+  IndexedDBContext.prototype.clear = function(callback) {
+    try {
+      var request = this.objectStore.clear();
+      request.onsuccess = function(event) {
+        callback();
+      };
+      request.onerror = function(error) {
+        callback(error);
+      };
+    } catch(e) {
+      callback(e);
+    }
+  };
+  IndexedDBContext.prototype.get = function(key, callback) {
+    try {
+      var request = this.objectStore.get(key);
+      request.onsuccess = function onsuccess(event) {
+        var result = event.target.result;
+        callback(null, result);
+      };
+      request.onerror = function onerror(error) {
+        callback(error);
+      };
+    } catch(e) {
+      callback(e);
+    }
+  };
+  IndexedDBContext.prototype.put = function(key, value, callback) {
+    try {
+      var request = this.objectStore.put(value, key);
+      request.onsuccess = function onsuccess(event) {
+        var result = event.target.result;
+        callback(null, result);
+      };
+      request.onerror = function onerror(error) {
+        callback(error);
+      };
+    } catch(e) {
+      callback(e);
+    }
+  };
+  IndexedDBContext.prototype.delete = function(key, callback) {
+    try {
+      var request = this.objectStore.delete(key);
+      request.onsuccess = function onsuccess(event) {
+        var result = event.target.result;
+        callback(null, result);
+      };
+      request.onerror = function(error) {
+        callback(error);
+      };
+    } catch(e) {
+      callback(e);
+    }
+  };
+
+
+  function IndexedDB(name) {
+    this.name = name || FILE_SYSTEM_NAME;
+    this.db = null;
+  }
+  IndexedDB.isSupported = function() {
+    return !!indexedDB;
+  };
+
+  IndexedDB.prototype.open = function(callback) {
+    var that = this;
+
+    // Bail if we already have a db open
+    if( that.db ) {
+      callback(null, false);
+      return;
+    }
+
+    // Keep track of whether we're accessing this db for the first time
+    // and therefore needs to get formatted.
+    var firstAccess = false;
+
+    // NOTE: we're not using versioned databases.
+    var openRequest = indexedDB.open(that.name);
+
+    // If the db doesn't exist, we'll create it
+    openRequest.onupgradeneeded = function onupgradeneeded(event) {
+      var db = event.target.result;
+
+      if(db.objectStoreNames.contains(FILE_STORE_NAME)) {
+        db.deleteObjectStore(FILE_STORE_NAME);
+      }
+      db.createObjectStore(FILE_STORE_NAME);
+
+      firstAccess = true;
+    };
+
+    openRequest.onsuccess = function onsuccess(event) {
+      that.db = event.target.result;
+      callback(null, firstAccess);
+    };
+    openRequest.onerror = function onerror(error) {
+      callback(error);
+    };
+  };
+  IndexedDB.prototype.getReadOnlyContext = function() {
+    return new IndexedDBContext(this.db, IDB_RO);
+  };
+  IndexedDB.prototype.getReadWriteContext = function() {
+    return new IndexedDBContext(this.db, IDB_RW);
+  };
+
+  return IndexedDB;
+});
+
+define('src/providers/memory',['require','src/constants'],function(require) {
+  var FILE_SYSTEM_NAME = require('src/constants').FILE_SYSTEM_NAME;
+
+  function MemoryContext(db, readOnly) {
+    this.readOnly = readOnly;
+    this.objectStore = db;
+  }
+  MemoryContext.prototype.clear = function(callback) {
+    if(this.readOnly) {
+      return callback("[MemoryContext] Error: write operation on read only context");
+    }
+    var objectStore = this.objectStore;
+    Object.keys(objectStore).forEach(function(key){
+      delete objectStore[key];
+    });
+    callback(null);
+  };
+  MemoryContext.prototype.get = function(key, callback) {
+    callback(null, this.objectStore[key]);
+  };
+  MemoryContext.prototype.put = function(key, value, callback) {
+    if(this.readOnly) {
+      return callback("[MemoryContext] Error: write operation on read only context");
+    }
+    this.objectStore[key] = value;
+    callback(null);
+  };
+  MemoryContext.prototype.delete = function(key, callback) {
+    if(this.readOnly) {
+      return callback("[MemoryContext] Error: write operation on read only context");
+    }
+    delete this.objectStore[key];
+    callback(null);
+  };
+
+
+  function Memory(name) {
+    this.name = name || FILE_SYSTEM_NAME;
+    this.db = {};
+  }
+  Memory.isSupported = function() {
+    return true;
+  };
+
+  Memory.prototype.open = function(callback) {
+    callback(null, true);
+  };
+  Memory.prototype.getReadOnlyContext = function() {
+    return new MemoryContext(this.db, true);
+  };
+  Memory.prototype.getReadWriteContext = function() {
+    return new MemoryContext(this.db, false);
+  };
+
+  return Memory;
+});
+
+define('src/providers/providers',['require','src/providers/indexeddb','src/providers/memory','src/providers/indexeddb'],function(require) {
+  return {
+    IndexedDB: require('src/providers/indexeddb'),
+    Memory: require('src/providers/memory'),
+    Default: require('src/providers/indexeddb')
+  };
+});
+
+define('src/fs',['require','lodash','encoding-indexes','encoding','src/path','src/path','src/path','src/shared','src/shared','src/shared','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/error','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/constants','src/providers/providers'],function(require) {
 
   var _ = require('lodash');
-  var when = require('when');
 
   // TextEncoder and TextDecoder will either already be present, or use this shim.
   // Because of the way the spec is defined, we need to get them off the global.
@@ -8198,17 +7575,17 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
   var ENotMounted = require('src/error').ENotMounted;
   var EInvalid = require('src/error').EInvalid;
   var EIO = require('src/error').EIO;
+  var ELoop = require('src/error').ELoop;
   var EFileSystemError = require('src/error').EFileSystemError;
 
+  var FILE_SYSTEM_NAME = require('src/constants').FILE_SYSTEM_NAME;
   var FS_FORMAT = require('src/constants').FS_FORMAT;
   var MODE_FILE = require('src/constants').MODE_FILE;
   var MODE_DIRECTORY = require('src/constants').MODE_DIRECTORY;
+  var MODE_SYMBOLIC_LINK = require('src/constants').MODE_SYMBOLIC_LINK;
   var ROOT_DIRECTORY_NAME = require('src/constants').ROOT_DIRECTORY_NAME;
   var ROOT_NODE_ID = require('src/constants').ROOT_NODE_ID;
-  var IDB_RW = require('src/constants').IDB_RW;
-  var IDB_RO = require('src/constants').IDB_RO;
-  var FILE_STORE_NAME = require('src/constants').FILE_STORE_NAME;
-  var METADATA_STORE_NAME = require('src/constants').METADATA_STORE_NAME;
+  var SYMLOOP_MAX = require('src/constants').SYMLOOP_MAX;
   var FS_READY = require('src/constants').FS_READY;
   var FS_PENDING = require('src/constants').FS_PENDING;
   var FS_ERROR = require('src/constants').FS_ERROR;
@@ -8219,6 +7596,8 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
   var O_TRUNCATE = require('src/constants').O_TRUNCATE;
   var O_APPEND = require('src/constants').O_APPEND;
   var O_FLAGS = require('src/constants').O_FLAGS;
+
+  var providers = require('src/providers/providers');
 
   /*
    * DirectoryEntry
@@ -8282,13 +7661,14 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
 
   // in: file or directory path
   // out: node structure, or error
-  function find_node(objectStore, path, callback) {
+  function find_node(context, path, callback) {
     path = normalize(path);
     if(!path) {
       return callback(new ENoEntry('path is an empty string'));
     }
     var name = basename(path);
     var parentPath = dirname(path);
+    var followedCount = 0;
 
     function check_root_directory_node(error, rootDirectoryNode) {
       if(error) {
@@ -8296,7 +7676,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       } else if(!rootDirectoryNode) {
         callback(new ENoEntry('path does not exist'));
       } else {
-        callback(undefined, rootDirectoryNode);
+        callback(null, rootDirectoryNode);
       }
     }
 
@@ -8305,16 +7685,16 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
     function read_parent_directory_data(error, parentDirectoryNode) {
       if(error) {
         callback(error);
-      } else if(!parentDirectoryNode.type == MODE_DIRECTORY) {
+      } else if(parentDirectoryNode.mode !== MODE_DIRECTORY || !parentDirectoryNode.data) {
         callback(new ENotDirectory('a component of the path prefix is not a directory'));
       } else {
-        read_object(objectStore, parentDirectoryNode.data, get_node_id_from_parent_directory_data);
+        context.get(parentDirectoryNode.data, get_node_from_parent_directory_data);
       }
     }
 
     // in: parent directory data
-    // out: searched node id
-    function get_node_id_from_parent_directory_data(error, parentDirectoryData) {
+    // out: searched node
+    function get_node_from_parent_directory_data(error, parentDirectoryData) {
       if(error) {
         callback(error);
       } else {
@@ -8322,69 +7702,44 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
           callback(new ENoEntry('path does not exist'));
         } else {
           var nodeId = parentDirectoryData[name].id;
-          read_object(objectStore, nodeId, callback);
+          context.get(nodeId, is_symbolic_link);
         }
       }
     }
 
+    function is_symbolic_link(error, node) {
+      if(error) {
+        callback(error);
+      } else {
+        if(node.mode == MODE_SYMBOLIC_LINK) {
+          followedCount++;
+          if(followedCount > SYMLOOP_MAX){
+            callback(new ELoop('too many symbolic links were encountered'));
+          } else {
+            follow_symbolic_link(node.data);
+          }
+        } else {
+          callback(null, node);
+        }
+      }
+    }
+
+    function follow_symbolic_link(data) {
+      data = normalize(data);
+      parentPath = dirname(data);
+      name = basename(data);
+      if(ROOT_DIRECTORY_NAME == name) {
+        context.get(ROOT_NODE_ID, check_root_directory_node);
+      } else {
+        find_node(context, parentPath, read_parent_directory_data);
+      }
+    }
+
     if(ROOT_DIRECTORY_NAME == name) {
-      read_object(objectStore, ROOT_NODE_ID, check_root_directory_node);
+      context.get(ROOT_NODE_ID, check_root_directory_node);
     } else {
-      find_node(objectStore, parentPath, read_parent_directory_data);
+      find_node(context, parentPath, read_parent_directory_data);
     }
-  }
-
-  /*
-   * read_object
-   */
-
-  function read_object(objectStore, id, callback) {
-    try {
-      var getRequest = objectStore.get(id);
-      getRequest.onsuccess = function onsuccess(event) {
-        var result = event.target.result;
-        callback(undefined, result);
-      };
-      getRequest.onerror = function onerror(error) {
-        callback(error);
-      };
-    } catch(error) {
-      callback(new EIO(error.message));
-    }
-  }
-
-  /*
-   * write_object
-   */
-
-  function write_object(objectStore, object, id, callback) {
-    try {
-      var putRequest = objectStore.put(object, id);
-      putRequest.onsuccess = function onsuccess(event) {
-        var result = event.target.result;
-        callback(undefined, result);
-      };
-      putRequest.onerror = function onerror(error) {
-        callback(error);
-      };
-    } catch(error) {
-      callback(new EIO(error.message));
-    }
-  }
-
-  /*
-   * delete_object
-   */
-
-  function delete_object(objectStore, id, callback) {
-    var deleteRequest = objectStore.delete(id);
-    deleteRequest.onsuccess = function onsuccess(event) {
-      var result = event.target.result;
-      callback(undefined, result);
-    };
-    deleteRequest.onerror = function(error) {
-      callback(error);
-    };
   }
 
   /*
@@ -8392,7 +7747,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
    */
 
   // Note: this should only be invoked when formatting a new file system
-  function make_root_directory(objectStore, callback) {
+  function make_root_directory(context, callback) {
     var directoryNode;
     var directoryData;
 
@@ -8404,7 +7759,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       } else {
         directoryNode = new Node(ROOT_NODE_ID, MODE_DIRECTORY);
         directoryNode.nlinks += 1;
-        write_object(objectStore, directoryNode, directoryNode.id, write_directory_data);
+        context.put(directoryNode.id, directoryNode, write_directory_data);
       }
     }
 
@@ -8413,18 +7768,18 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         directoryData = {};
-        write_object(objectStore, directoryData, directoryNode.data, callback);
+        context.put(directoryNode.data, directoryData, callback);
       }
     }
 
-    find_node(objectStore, ROOT_DIRECTORY_NAME, write_directory_node);
+    find_node(context, ROOT_DIRECTORY_NAME, write_directory_node);
   }
 
   /*
    * make_directory
    */
 
-  function make_directory(objectStore, path, callback) {
+  function make_directory(context, path, callback) {
     path = normalize(path);
     var name = basename(path);
     var parentPath = dirname(path);
@@ -8440,7 +7795,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       } else if(error && !error instanceof ENoEntry) {
         callback(error);
       } else {
-        find_node(objectStore, parentPath, read_parent_directory_data);
+        find_node(context, parentPath, read_parent_directory_data);
       }
     }
 
@@ -8449,7 +7804,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         parentDirectoryNode = result;
-        read_object(objectStore, parentDirectoryNode.data, write_directory_node);
+        context.get(parentDirectoryNode.data, write_directory_node);
       }
     }
 
@@ -8460,7 +7815,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         parentDirectoryData = result;
         directoryNode = new Node(undefined, MODE_DIRECTORY);
         directoryNode.nlinks += 1;
-        write_object(objectStore, directoryNode, directoryNode.id, write_directory_data);
+        context.put(directoryNode.id, directoryNode, write_directory_data);
       }
     }
 
@@ -8469,7 +7824,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         directoryData = {};
-        write_object(objectStore, directoryData, directoryNode.data, update_parent_directory_data);
+        context.put(directoryNode.data, directoryData, update_parent_directory_data);
       }
     }
 
@@ -8478,18 +7833,18 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         parentDirectoryData[name] = new DirectoryEntry(directoryNode.id, MODE_DIRECTORY);
-        write_object(objectStore, parentDirectoryData, parentDirectoryNode.data, callback);
+        context.put(parentDirectoryNode.data, parentDirectoryData, callback);
       }
     }
 
-    find_node(objectStore, path, check_if_directory_exists);
+    find_node(context, path, check_if_directory_exists);
   }
 
   /*
    * remove_directory
    */
 
-  function remove_directory(objectStore, path, callback) {
+  function remove_directory(context, path, callback) {
     path = normalize(path);
     var name = basename(path);
     var parentPath = dirname(path);
@@ -8499,16 +7854,37 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
     var parentDirectoryNode;
     var parentDirectoryData;
 
-    function check_if_directory_exists(error, result) {
+    function read_parent_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        parentDirectoryNode = result;
+        context.get(parentDirectoryNode.data, check_if_node_exists);
+      }
+    }
+
+    function check_if_node_exists(error, result) {
       if(error) {
         callback(error);
       } else if(ROOT_DIRECTORY_NAME == name) {
         callback(new EBusy());
-      } else if(!result) {
+      } else if(!_(result).has(name)) {
         callback(new ENoEntry());
       } else {
+        parentDirectoryData = result;
+        directoryNode = parentDirectoryData[name].id;
+        context.get(directoryNode, check_if_node_is_directory);
+      }
+    }
+
+    function check_if_node_is_directory(error, result) {
+      if(error) {
+        callback(error);
+      } else if(result.mode != MODE_DIRECTORY) {
+        callback(new ENotDirectory());
+      } else {
         directoryNode = result;
-        read_object(objectStore, directoryNode.data, check_if_directory_is_empty);
+        context.get(directoryNode.data, check_if_directory_is_empty);
       }
     }
 
@@ -8520,35 +7896,21 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         if(_(directoryData).size() > 0) {
           callback(new ENotEmpty());
         } else {
-          find_node(objectStore, parentPath, read_parent_directory_data);
+          remove_directory_entry_from_parent_directory_node();
         }
       }
     }
 
-    function read_parent_directory_data(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        parentDirectoryNode = result;
-        read_object(objectStore, parentDirectoryNode.data, remove_directory_entry_from_parent_directory_node);
-      }
-    }
-
-    function remove_directory_entry_from_parent_directory_node(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        parentDirectoryData = result;
-        delete parentDirectoryData[name];
-        write_object(objectStore, parentDirectoryData, parentDirectoryNode.data, remove_directory_node);
-      }
+    function remove_directory_entry_from_parent_directory_node() {
+      delete parentDirectoryData[name];
+      context.put(parentDirectoryNode.data, parentDirectoryData, remove_directory_node);
     }
 
     function remove_directory_node(error) {
       if(error) {
         callback(error);
       } else {
-        delete_object(objectStore, directoryNode.id, remove_directory_data);
+        context.delete(directoryNode.id, remove_directory_data);
       }
     }
 
@@ -8556,14 +7918,14 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       if(error) {
         callback(error);
       } else {
-        delete_object(objectStore, directoryNode.data, callback);
+        context.delete(directoryNode.data, callback);
       }
     }
 
-    find_node(objectStore, path, check_if_directory_exists);
+    find_node(context, parentPath, read_parent_directory_data);
   }
 
-  function open_file(fs, objectStore, path, flags, callback) {
+  function open_file(context, path, flags, callback) {
     path = normalize(path);
     var name = basename(path);
     var parentPath = dirname(path);
@@ -8574,14 +7936,16 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
     var fileNode;
     var fileData;
 
+    var followedCount = 0;
+
     if(ROOT_DIRECTORY_NAME == name) {
       if(_(flags).contains(O_WRITE)) {
         callback(new EIsDirectory('the named file is a directory and O_WRITE is set'));
       } else {
-        find_node(objectStore, path, set_file_node);
+        find_node(context, path, set_file_node);
       }
     } else {
-      find_node(objectStore, parentPath, read_directory_data);
+      find_node(context, parentPath, read_directory_data);
     }
 
     function read_directory_data(error, result) {
@@ -8589,7 +7953,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         directoryNode = result;
-        read_object(objectStore, directoryNode.data, check_if_file_exists);
+        context.get(directoryNode.data, check_if_file_exists);
       }
     }
 
@@ -8606,7 +7970,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
             if(directoryEntry.type == MODE_DIRECTORY && _(flags).contains(O_WRITE)) {
               callback(new EIsDirectory('the named file is a directory and O_WRITE is set'));
             } else {
-              read_object(objectStore, directoryEntry.id, set_file_node);
+              context.get(directoryEntry.id, check_if_symbolic_link);
             }
           }
         } else {
@@ -8619,19 +7983,51 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       }
     }
 
+    function check_if_symbolic_link(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        var node = result;
+        if(node.mode == MODE_SYMBOLIC_LINK) {
+          followedCount++;
+          if(followedCount > SYMLOOP_MAX){
+            callback(new ELoop('too many symbolic links were encountered'));
+          } else {
+            follow_symbolic_link(node.data);
+          }
+        } else {
+          set_file_node(undefined, node);
+        }
+      }
+    }
+
+    function follow_symbolic_link(data) {
+      data = normalize(data);
+      parentPath = dirname(data);
+      name = basename(data);
+      if(ROOT_DIRECTORY_NAME == name) {
+        if(_(flags).contains(O_WRITE)) {
+          callback(new EIsDirectory('the named file is a directory and O_WRITE is set'));
+        } else {
+          find_node(context, path, set_file_node);
+        }
+      }
+      find_node(context, parentPath, read_directory_data);
+    }
+
     function set_file_node(error, result) {
       if(error) {
         callback(error);
       } else {
         fileNode = result;
-        callback(undefined, fileNode);
+        callback(null, fileNode);
       }
     }
 
     function write_file_node() {
       fileNode = new Node(undefined, MODE_FILE);
       fileNode.nlinks += 1;
-      write_object(objectStore, fileNode, fileNode.id, write_file_data);
+      context.put(fileNode.id, fileNode, write_file_data);
     }
 
     function write_file_data(error) {
@@ -8639,7 +8035,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         fileData = new Uint8Array(0);
-        write_object(objectStore, fileData, fileNode.data, update_directory_data);
+        context.put(fileNode.data, fileData, update_directory_data);
       }
     }
 
@@ -8648,7 +8044,7 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         directoryData[name] = new DirectoryEntry(fileNode.id, MODE_FILE);
-        write_object(objectStore, directoryData, directoryNode.data, handle_update_result);
+        context.put(directoryNode.data, directoryData, handle_update_result);
       }
     }
 
@@ -8656,23 +8052,28 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       if(error) {
         callback(error);
       } else {
-        callback(undefined, fileNode);
+        callback(null, fileNode);
       }
     }
   }
 
-  function write_data(objectStore, ofd, buffer, offset, length, position, callback) {
+  function write_data(context, ofd, buffer, offset, length, position, callback) {
     var fileNode;
     var fileData;
 
-    read_object(objectStore, ofd.id, read_file_data);
-
-    function read_file_data(error, result) {
+    function return_nbytes(error) {
       if(error) {
         callback(error);
       } else {
-        fileNode = result;
-        read_object(objectStore, fileNode.data, update_file_data);
+        callback(null, length);
+      }
+    }
+
+    function update_file_node(error) {
+      if(error) {
+        callback(error);
+      } else {
+        context.put(fileNode.id, fileNode, return_nbytes);
       }
     }
 
@@ -8696,41 +8097,25 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         fileNode.mtime = Date.now();
         fileNode.version += 1;
 
-        write_object(objectStore, newData, fileNode.data, update_file_node);
+        context.put(fileNode.data, newData, update_file_node);
       }
     }
-
-    function update_file_node(error) {
-      if(error) {
-        callback(error);
-      } else {
-        write_object(objectStore, fileNode, fileNode.id, return_nbytes);
-      }
-    }
-
-    function return_nbytes(error) {
-      if(error) {
-        callback(error);
-      } else {
-        callback(undefined, length);
-      }
-    }
-  }
-
-  function read_data(objectStore, ofd, buffer, offset, length, position, callback) {
-    var fileNode;
-    var fileData;
-
-    read_object(objectStore, ofd.id, read_file_data);
 
     function read_file_data(error, result) {
       if(error) {
         callback(error);
       } else {
         fileNode = result;
-        read_object(objectStore, fileNode.data, handle_file_data);
+        context.get(fileNode.data, update_file_data);
       }
     }
+
+    context.get(ofd.id, read_file_data);
+  }
+
+  function read_data(context, ofd, buffer, offset, length, position, callback) {
+    var fileNode;
+    var fileData;
 
     function handle_file_data(error, result) {
       if(error) {
@@ -8744,39 +8129,95 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         if(undefined === position) {
           ofd.position += length;
         }
-        callback(undefined, length);
+        callback(null, length);
       }
     }
+
+    function read_file_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        fileNode = result;
+        context.get(fileNode.data, handle_file_data);
+      }
+    }
+
+    context.get(ofd.id, read_file_data);
   }
 
-  function stat_file(objectStore, path, callback) {
+  function stat_file(context, path, callback) {
     path = normalize(path);
     var name = basename(path);
 
-    find_node(objectStore, path, check_file);
+    function check_file(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, result);
+      }
+    }
+
+    find_node(context, path, check_file);
+  }
+
+  function fstat_file(context, ofd, callback) {
+    function check_file(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, result);
+      }
+    }
+
+    context.get(ofd.id, check_file);
+  }
+
+  function lstat_file(context, path, callback) {
+    path = normalize(path);
+    var name = basename(path);
+    var parentPath = dirname(path);
+
+    var directoryNode;
+    var directoryData;
+
+    if(ROOT_DIRECTORY_NAME == name) {
+      context.get(ROOT_NODE_ID, check_file);
+    } else {
+      find_node(context, parentPath, read_directory_data);
+    }
+
+    function read_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryNode = result;
+        context.get(directoryNode.data, check_if_file_exists);
+      }
+    }
+
+    function check_if_file_exists(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryData = result;
+        if(!_(directoryData).has(name)) {
+          callback(new ENoEntry('a component of the path does not name an existing file'));
+        } else {
+          context.get(directoryData[name].id, check_file);
+        }
+      }
+    }
 
     function check_file(error, result) {
       if(error) {
         callback(error);
       } else {
-        callback(undefined, result);
+        callback(null, result);
       }
     }
   }
 
-  function fstat_file(objectStore, ofd, callback) {
-    read_object(objectStore, ofd.id, check_file);
-
-    function check_file(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        callback(undefined, result);
-      }
-    }
-  }
-
-  function link_node(objectStore, oldpath, newpath, callback) {
+  function link_node(context, oldpath, newpath, callback) {
     oldpath = normalize(oldpath);
     var oldname = basename(oldpath);
     var oldParentPath = dirname(oldpath);
@@ -8791,36 +8232,21 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
     var newDirectoryData;
     var fileNode;
 
-    find_node(objectStore, oldParentPath, read_old_directory_data);
-
-    function read_old_directory_data(error, result) {
+    function update_file_node(error, result) {
       if(error) {
         callback(error);
       } else {
-        oldDirectoryNode = result;
-        read_object(objectStore, oldDirectoryNode.data, check_if_old_file_exists);
+        fileNode = result;
+        fileNode.nlinks += 1;
+        context.put(fileNode.id, fileNode, callback);
       }
     }
 
-    function check_if_old_file_exists(error, result) {
+    function read_directory_entry(error, result) {
       if(error) {
         callback(error);
       } else {
-        oldDirectoryData = result;
-        if(!_(oldDirectoryData).has(oldname)) {
-          callback(new ENoEntry('a component of either path prefix does not exist'));
-        } else {
-          find_node(objectStore, newParentPath, read_new_directory_data);
-        }
-      }
-    }
-
-    function read_new_directory_data(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        newDirectoryNode = result;
-        read_object(objectStore, newDirectoryNode.data, check_if_new_file_exists);
+        context.get(newDirectoryData[newname].id, update_file_node);
       }
     }
 
@@ -8833,16 +8259,68 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
           callback(new EExists('newpath resolves to an existing file'));
         } else {
           newDirectoryData[newname] = oldDirectoryData[oldname];
-          write_object(objectStore, newDirectoryData, newDirectoryNode.data, read_directory_entry);
+          context.put(newDirectoryNode.data, newDirectoryData, read_directory_entry);
         }
       }
     }
 
-    function read_directory_entry(error, result) {
+    function read_new_directory_data(error, result) {
       if(error) {
         callback(error);
       } else {
-        read_object(objectStore, newDirectoryData[newname].id, update_file_node);
+        newDirectoryNode = result;
+        context.get(newDirectoryNode.data, check_if_new_file_exists);
+      }
+    }
+
+    function check_if_old_file_exists(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        oldDirectoryData = result;
+        if(!_(oldDirectoryData).has(oldname)) {
+          callback(new ENoEntry('a component of either path prefix does not exist'));
+        } else {
+          find_node(context, newParentPath, read_new_directory_data);
+        }
+      }
+    }
+
+    function read_old_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        oldDirectoryNode = result;
+        context.get(oldDirectoryNode.data, check_if_old_file_exists);
+      }
+    }
+
+    find_node(context, oldParentPath, read_old_directory_data);
+  }
+
+  function unlink_node(context, path, callback) {
+    path = normalize(path);
+    var name = basename(path);
+    var parentPath = dirname(path);
+
+    var directoryNode;
+    var directoryData;
+    var fileNode;
+
+    function update_directory_data(error) {
+      if(error) {
+        callback(error);
+      } else {
+        delete directoryData[name];
+        context.put(directoryNode.data, directoryData, callback);
+      }
+    }
+
+    function delete_file_data(error) {
+      if(error) {
+        callback(error);
+      } else {
+        context.delete(fileNode.data, update_directory_data);
       }
     }
 
@@ -8851,29 +8329,12 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         callback(error);
       } else {
         fileNode = result;
-        fileNode.nlinks += 1;
-        write_object(objectStore, fileNode, fileNode.id, callback);
-      }
-    }
-  }
-
-  function unlink_node(objectStore, path, callback) {
-    path = normalize(path);
-    name = basename(path);
-    parentPath = dirname(path);
-
-    var directoryNode;
-    var directoryData;
-    var fileNode;
-
-    find_node(objectStore, parentPath, read_directory_data);
-
-    function read_directory_data(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        directoryNode = result;
-        read_object(objectStore, directoryNode.data, check_if_file_exists);
+        fileNode.nlinks -= 1;
+        if(fileNode.nlinks < 1) {
+          context.delete(fileNode.id, delete_file_data);
+        } else {
+          context.put(fileNode.id, fileNode, update_directory_data);
+        }
       }
     }
 
@@ -8885,60 +8346,29 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
         if(!_(directoryData).has(name)) {
           callback(new ENoEntry('a component of the path does not name an existing file'));
         } else {
-          read_object(objectStore, directoryData[name].id, update_file_node);
+          context.get(directoryData[name].id, update_file_node);
         }
       }
     }
-
-    function update_file_node(error, result) {
-      if(error) {
-        callback(error);
-      } else {
-        fileNode = result;
-        fileNode.nlinks -= 1;
-        if(fileNode.nlinks < 1) {
-          delete_object(objectStore, fileNode.id, delete_file_data);
-        } else {
-          write_object(objectStore, fileNode, fileNode.id, update_directory_data);
-        }
-      }
-    }
-
-    function delete_file_data(error) {
-      if(error) {
-        callback(error);
-      } else {
-        delete_object(objectStore, fileNode.data, update_directory_data);
-      }
-    }
-
-    function update_directory_data(error) {
-      if(error) {
-        callback(error);
-      } else {
-        delete directoryData[name];
-        write_object(objectStore, directoryData, directoryNode.data, callback);
-      }
-    }
-  }
-
-  function read_directory(objectStore, path, callback) {
-    path = normalize(path);
-    var name = basename(path);
-
-    var directoryNode;
-    var directoryData;
-
-    find_node(objectStore, path, read_directory_data);
 
     function read_directory_data(error, result) {
       if(error) {
         callback(error);
       } else {
         directoryNode = result;
-        read_object(objectStore, directoryNode.data, handle_directory_data);
+        context.get(directoryNode.data, check_if_file_exists);
       }
     }
+
+    find_node(context, parentPath, read_directory_data);
+  }
+
+  function read_directory(context, path, callback) {
+    path = normalize(path);
+    var name = basename(path);
+
+    var directoryNode;
+    var directoryData;
 
     function handle_directory_data(error, result) {
       if(error) {
@@ -8946,7 +8376,118 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
       } else {
         directoryData = result;
         var files = Object.keys(directoryData);
-        callback(undefined, files);
+        callback(null, files);
+      }
+    }
+
+    function read_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryNode = result;
+        context.get(directoryNode.data, handle_directory_data);
+      }
+    }
+
+    find_node(context, path, read_directory_data);
+  }
+
+  function make_symbolic_link(context, srcpath, dstpath, callback) {
+    dstpath = normalize(dstpath);
+    var name = basename(dstpath);
+    var parentPath = dirname(dstpath);
+
+    var directoryNode;
+    var directoryData;
+    var fileNode;
+
+    if(ROOT_DIRECTORY_NAME == name) {
+      callback(new EExists('the destination path already exists'));
+    } else {
+      find_node(context, parentPath, read_directory_data);
+    }
+
+    function read_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryNode = result;
+        context.get(directoryNode.data, check_if_file_exists);
+      }
+    }
+
+    function check_if_file_exists(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryData = result;
+        if(_(directoryData).has(name)) {
+          callback(new EExists('the destination path already exists'));
+        } else {
+          write_file_node();
+        }
+      }
+    }
+
+    function write_file_node() {
+      fileNode = new Node(undefined, MODE_SYMBOLIC_LINK);
+      fileNode.nlinks += 1;
+      fileNode.size = srcpath.length;
+      fileNode.data = srcpath;
+      context.put(fileNode.id, fileNode, update_directory_data);
+    }
+
+    function update_directory_data(error) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryData[name] = new DirectoryEntry(fileNode.id, MODE_SYMBOLIC_LINK);
+        context.put(directoryNode.data, directoryData, callback);
+      }
+    }
+  }
+
+  function read_link(context, path, callback) {
+    path = normalize(path);
+    var name = basename(path);
+    var parentPath = dirname(path);
+
+    var directoryNode;
+    var directoryData;
+
+    find_node(context, parentPath, read_directory_data);
+
+    function read_directory_data(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryNode = result;
+        context.get(directoryNode.data, check_if_file_exists);
+      }
+    }
+
+    function check_if_file_exists(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        directoryData = result;
+        if(!_(directoryData).has(name)) {
+          callback(new ENoEntry('a component of the path does not name an existing file'));
+        } else {
+          context.get(directoryData[name].id, check_if_symbolic);
+        }
+      }
+    }
+
+    function check_if_symbolic(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        if(result.mode != MODE_SYMBOLIC_LINK) {
+          callback(new EInvalid("path not a symbolic link"));
+        } else {
+          callback(null, result.data);
+        }
       }
     }
   }
@@ -8954,755 +8495,699 @@ define('src/fs',['require','lodash','when','encoding-indexes','encoding','src/pa
   function validate_flags(flags) {
     if(!_(O_FLAGS).has(flags)) {
       return null;
-    } else {
-      return O_FLAGS[flags];
     }
+    return O_FLAGS[flags];
   }
 
   /*
    * FileSystem
+   *
+   * A FileSystem takes an `options` object, which can specify a number of,
+   * options.  All options are optional, and include:
+   *
+   * name: the name of the file system, defaults to "local"
+   *
+   * flags: one or more flags to use when creating/opening the file system.
+   *        For example: "FORMAT" will cause the file system to be formatted.
+   *        No explicit flags are set by default.
+   *
+   * provider: an explicit storage provider to use for the file
+   *           system's database context provider.  A number of context
+   *           providers are included (see /src/providers), and users
+   *           can write one of their own and pass it in to be used.
+   *           By default an IndexedDB provider is used.
+   *
+   * callback: a callback function to be executed when the file system becomes
+   *           ready for use. Depending on the context provider used, this might
+   *           be right away, or could take some time. The callback should expect
+   *           an `error` argument, which will be null if everything worked.  Also
+   *           users should check the file system's `readyState` and `error`
+   *           properties to make sure it is usable.
    */
+  function FileSystem(options, callback) {
+    options = options || {};
+    callback = callback || nop;
 
-  function FileSystem(name, flags) {
-    var format = _(flags).contains(FS_FORMAT);
-    var that = this;
+    var name = options.name || FILE_SYSTEM_NAME;
+    var flags = options.flags;
+    var provider = options.provider || new providers.Default(name);
+    var forceFormatting = _(flags).contains(FS_FORMAT);
 
-    var deferred = when.defer();
-    this.promise = deferred.promise;
+    var fs = this;
+    fs.readyState = FS_PENDING;
+    fs.name = name;
+    fs.error = null;
 
-    var openRequest = indexedDB.open(name);
-    openRequest.onupgradeneeded = function onupgradeneeded(event) {
-      var db = event.target.result;
-
-      if(db.objectStoreNames.contains(FILE_STORE_NAME)) {
-        db.deleteObjectStore(FILE_STORE_NAME);
-      }
-      var files = db.createObjectStore(FILE_STORE_NAME);
-
-      if(db.objectStoreNames.contains(METADATA_STORE_NAME)) {
-        db.deleteObjectStore(METADATA_STORE_NAME);
-      }
-      var metadata = db.createObjectStore(METADATA_STORE_NAME);
-
-      format = true;
-    };
-    openRequest.onsuccess = function onsuccess(event) {
-      var db = event.target.result;
-      var transaction = db.transaction([FILE_STORE_NAME], IDB_RW);
-      var files = transaction.objectStore(FILE_STORE_NAME);
-
-      function complete(error) {
-        that.db = db;
-        if(error) {
-          that.readyState = FS_ERROR;
-          deferred.reject(error);
-        } else {
-          that.readyState = FS_READY;
-          deferred.resolve();
-        }
-      }
-
-      if(format) {
-        var clearRequest = files.clear();
-        clearRequest.onsuccess = function onsuccess(event) {
-          make_root_directory(files, complete);
-        };
-        clearRequest.onerror = function onerror(error) {
-          complete(error);
-        };
-      } else {
-        complete();
-      }
-    };
-    openRequest.onerror = function onerror(error) {
-      this.readyState = FS_ERROR;
-      deferred.reject(error);
-    };
-
-    var nextDescriptor = 1;
+    // Safely expose the list of open files and file
+    // descriptor management functions
     var openFiles = {};
+    var nextDescriptor = 1;
+    Object.defineProperty(this, "openFiles", {
+      get: function() { return openFiles; }
+    });
+    this.allocDescriptor = function(openFileDescription) {
+      var fd = nextDescriptor ++;
+      openFiles[fd] = openFileDescription;
+      return fd;
+    };
+    this.releaseDescriptor = function(fd) {
+      delete openFiles[fd];
+    };
 
-    this.readyState = FS_PENDING;
-    this.db = null;
-    this.nextDescriptor = nextDescriptor;
-    this.openFiles = openFiles;
-    this.name = name;
-  }
-  FileSystem.prototype._allocate_descriptor = function _allocate_descriptor(openFileDescription) {
-    var fd = this.nextDescriptor ++;
-    this.openFiles[fd] = openFileDescription;
-    return fd;
-  };
-  FileSystem.prototype._release_descriptor = function _release_descriptor(fd) {
-    delete this.openFiles[fd];
-  };
-  FileSystem.prototype.open = function open(path, flags, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
+    // Safely expose the operation queue
+    var queue = [];
+    this.queueOrRun = function(operation) {
+      var error;
 
-        function check_result(error, fileNode) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            var position;
-            if(_(flags).contains(O_APPEND)) {
-              position = fileNode.size;
-            } else {
-              position = 0;
-            }
-            var openFileDescription = new  OpenFileDescription(fileNode.id, flags, position);
-            var fd = that._allocate_descriptor(openFileDescription);
-            deferred.resolve(fd);
-          }
-        }
-
-        flags = validate_flags(flags);
-        if(!flags) {
-          deferred.reject(new EInvalid('flags is not valid'));
-        }
-
-        open_file(that, files, path, flags, check_result);
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+      if(FS_READY == fs.readyState) {
+        operation.call(fs);
+      } else if(FS_ERROR == fs.readyState) {
+        error = new EFileSystemError('unknown error');
+      } else {
+        queue.push(operation);
       }
-    );
-  };
-  FileSystem.prototype.close = function close(fd, callback) {
-    var deferred = when.defer();
 
-    if(!_(this.openFiles).has(fd)) {
-      deferred.reject(new EBadFileDescriptor('invalid file descriptor'));
-    } else {
-      this._release_descriptor(fd);
-      deferred.resolve();
+      return error;
+    };
+    function runQueued() {
+      queue.forEach(function(operation) {
+        operation.call(this);
+      }.bind(fs));
+      queue = null;
     }
 
-    deferred.promise.then(
-      function() {
-        callback();
-      },
-      function(error) {
+    // Open file system storage provider
+    provider.open(function(err, needsFormatting) {
+      function complete(error) {
+        fs.provider = provider;
+        if(error) {
+          fs.readyState = FS_ERROR;
+        } else {
+          fs.readyState = FS_READY;
+          runQueued();
+        }
         callback(error);
       }
-    );
-  };
-  FileSystem.prototype.mkdir = function mkdir(path, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
 
-        function check_result(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve();
-          }
-        }
-
-        make_directory(files, path, check_result);
-        deferred.promise.then(
-          function() {
-            callback();
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+      if(err) {
+        return complete(err);
       }
-    );
-  };
-  FileSystem.prototype.rmdir = function rmdir(path, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
 
-        function check_result(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve();
-          }
-        }
-
-        remove_directory(files, path, check_result);
-        deferred.promise.then(
-          function() {
-            callback();
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+      // If we don't need or want formatting, we're done
+      if(!(forceFormatting || needsFormatting)) {
+        return complete(null);
       }
-    );
-  };
-  FileSystem.prototype.stat = function stat(path, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        function check_result(error, result) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            var stats = new Stats(result, that.name);
-            deferred.resolve(stats);
-          }
+      // otherwise format the fs first
+      var context = provider.getReadWriteContext();
+      context.clear(function(err) {
+        if(err) {
+          complete(err);
+          return;
         }
+        make_root_directory(context, complete);
+      });
+    });
+  }
 
-        stat_file(files, path, check_result);
+  // Expose storage providers on FileSystem constructor
+  FileSystem.providers = providers;
 
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
-      }
-    );
-  };
-  FileSystem.prototype.fstat = function fstat(fd, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        function check_result(error, result) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            var stats = new Stats(result, that.name);
-            deferred.resolve(stats);
-          }
-        }
-
-        var ofd = that.openFiles[fd];
-
-        if(!ofd) {
-          deferred.reject(new EBadFileDescriptor('invalid file descriptor'));
+  function _open(fs, context, path, flags, callback) {
+    function check_result(error, fileNode) {
+      if(error) {
+        callback(error);
+      } else {
+        var position;
+        if(_(flags).contains(O_APPEND)) {
+          position = fileNode.size;
         } else {
-          fstat_file(files, ofd, check_result);
+          position = 0;
+        }
+        var openFileDescription = new OpenFileDescription(fileNode.id, flags, position);
+        var fd = fs.allocDescriptor(openFileDescription);
+        callback(null, fd);
+      }
+    }
+
+    flags = validate_flags(flags);
+    if(!flags) {
+      callback(new EInvalid('flags is not valid'));
+    }
+
+    open_file(context, path, flags, check_result);
+  }
+
+  function _close(fs, fd, callback) {
+    if(!_(fs.openFiles).has(fd)) {
+      callback(new EBadFileDescriptor('invalid file descriptor'));
+    } else {
+      fs.releaseDescriptor(fd);
+      callback(null);
+    }
+  }
+
+  function _mkdir(context, path, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    make_directory(context, path, check_result);
+  }
+
+  function _rmdir(context, path, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    remove_directory(context, path, check_result);
+  }
+
+  function _stat(context, name, path, callback) {
+    function check_result(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        var stats = new Stats(result, name);
+        callback(null, stats);
+      }
+    }
+
+    stat_file(context, path, check_result);
+  }
+
+  function _fstat(fs, context, fd, callback) {
+    function check_result(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        var stats = new Stats(result, fs.name);
+        callback(null, stats);
+      }
+    }
+
+    var ofd = fs.openFiles[fd];
+
+    if(!ofd) {
+      callback(new EBadFileDescriptor('invalid file descriptor'));
+    } else {
+      fstat_file(context, ofd, check_result);
+    }
+  }
+
+  function _link(context, oldpath, newpath, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    link_node(context, oldpath, newpath, check_result);
+  }
+
+  function _unlink(context, path, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    unlink_node(context, path, check_result);
+  }
+
+  function _read(fs, context, fd, buffer, offset, length, position, callback) {
+    offset = (undefined === offset) ? 0 : offset;
+    length = (undefined === length) ? buffer.length - offset : length;
+
+    function check_result(error, nbytes) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, nbytes);
+      }
+    }
+
+    var ofd = fs.openFiles[fd];
+
+    if(!ofd) {
+      callback(new EBadFileDescriptor('invalid file descriptor'));
+    } else if(!_(ofd.flags).contains(O_READ)) {
+      callback(new EBadFileDescriptor('descriptor does not permit reading'));
+    } else {
+      read_data(context, ofd, buffer, offset, length, position, check_result);
+    }
+  }
+
+  function _readFile(fs, context, path, options, callback) {
+    if(!options) {
+      options = { encoding: null, flag: 'r' };
+    } else if(typeof options === "function") {
+      callback = options;
+      options = { encoding: null, flag: 'r' };
+    } else if(typeof options === "string") {
+      options = { encoding: options, flag: 'r' };
+    }
+
+    var flags = validate_flags(options.flag || 'r');
+    if(!flags) {
+      callback(new EInvalid('flags is not valid'));
+    }
+
+    open_file(context, path, flags, function(err, fileNode) {
+      if(err) {
+        return callback(err);
+      }
+      var ofd = new OpenFileDescription(fileNode.id, flags, 0);
+      var fd = fs.allocDescriptor(ofd);
+
+      fstat_file(context, ofd, function(err2, fstatResult) {
+        if(err2) {
+          return callback(err2);
         }
 
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
-      }
-    );
-  };
-  FileSystem.prototype.link = function link(oldpath, newpath, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
+        var stats = new Stats(fstatResult, fs.name);
+        var size = stats.size;
+        var buffer = new Uint8Array(size);
 
-        function check_result(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
+        read_data(context, ofd, buffer, 0, size, 0, function(err3, nbytes) {
+          if(err3) {
+            return callback(err3);
+          }
+          fs.releaseDescriptor(fd);
+
+          var data;
+          if(options.encoding === 'utf8') {
+            data = new TextDecoder('utf-8').decode(buffer);
           } else {
-            deferred.resolve();
+            data = buffer;
           }
-        }
-
-        link_node(files, oldpath, newpath, check_result);
-
-        deferred.promise.then(
-          function(result) {
-            callback();
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
-      }
-    );
-  };
-  FileSystem.prototype.unlink = function unlink(path, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        function check_result(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve();
-          }
-        }
-
-        unlink_node(files, path, check_result);
-
-        deferred.promise.then(
-          function(result) {
-            callback();
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
-      }
-    );
-  };
-  FileSystem.prototype.read = function read(fd, buffer, offset, length, position, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        offset = (undefined === offset) ? 0 : offset;
-        length = (undefined === length) ? buffer.length - offset : length;
-
-        function check_result(error, nbytes) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve(nbytes);
-          }
-        }
-
-        var ofd = that.openFiles[fd];
-
-        if(!ofd) {
-          deferred.reject(new EBadFileDescriptor('invalid file descriptor'));
-        } else if(!_(ofd.flags).contains(O_READ)) {
-          deferred.reject(new EBadFileDescriptor('descriptor does not permit reading'));
-        } else {
-          read_data(files, ofd, buffer, offset, length, position, check_result);
-        }
-
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
-      }
-    );
-  };
-  FileSystem.prototype.readFile = function readFile(path, options, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RO);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        if(!options) {
-          options = { encoding: null, flag: 'r' };
-        } else if(typeof options === "function") {
-          callback = options;
-          options = { encoding: null, flag: 'r' };
-        } else if(typeof options === "string") {
-          options = { encoding: options, flag: 'r' };
-        }
-
-        var flags = validate_flags(options.flag || 'r');
-        if(!flags) {
-          deferred.reject(new EInvalid('flags is not valid'));
-        }
-
-        open_file(that, files, path, flags, function(err, fileNode) {
-          if(err) {
-            // TODO: abort transaction?
-            return deferred.reject(err);
-          }
-          var ofd = new OpenFileDescription(fileNode.id, flags, 0);
-          var fd = that._allocate_descriptor(ofd);
-
-          fstat_file(files, ofd, function(err2, fstatResult) {
-            if(err2) {
-              // TODO: abort transaction?
-              return deferred.reject(err2);
-            }
-
-            var stats = new Stats(fstatResult, that.name);
-            var size = stats.size;
-            var buffer = new Uint8Array(size);
-
-            read_data(files, ofd, buffer, 0, size, 0, function(err3, nbytes) {
-              if(err3) {
-                // TODO: abort transaction?
-                return deferred.reject(err3);
-              }
-              that._release_descriptor(fd);
-
-              var data;
-              if(options.encoding === 'utf8') {
-                data = new TextDecoder('utf-8').decode(buffer);
-              } else {
-                data = buffer;
-              }
-              deferred.resolve(data);
-            });
-          });
-
+          callback(null, data);
         });
+      });
 
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+    });
+  }
+
+  function _write(fs, context, fd, buffer, offset, length, position, callback) {
+    offset = (undefined === offset) ? 0 : offset;
+    length = (undefined === length) ? buffer.length - offset : length;
+
+    function check_result(error, nbytes) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, nbytes);
       }
-    );
-  };
-  FileSystem.prototype.write = function write(fd, buffer, offset, length, position, callback) {
-    var that = this;
-    this.promise.then(
-      function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
+    }
 
-        offset = (undefined === offset) ? 0 : offset;
-        length = (undefined === length) ? buffer.length - offset : length;
+    var ofd = fs.openFiles[fd];
 
-        function check_result(error, nbytes) {
-          if(error) {
-            deferred.reject(error);
-          } else {
-            deferred.resolve(nbytes);
-          }
+    if(!ofd) {
+      callback(new EBadFileDescriptor('invalid file descriptor'));
+    } else if(!_(ofd.flags).contains(O_WRITE)) {
+      callback(new EBadFileDescriptor('descriptor does not permit writing'));
+    } else if(buffer.length - offset < length) {
+      callback(new EIO('intput buffer is too small'));
+    } else {
+      write_data(context, ofd, buffer, offset, length, position, check_result);
+    }
+  }
+
+  function _writeFile(fs, context, path, data, options, callback) {
+    if(!options) {
+      options = { encoding: 'utf8', flag: 'w' };
+    } else if(typeof options === "function") {
+      callback = options;
+      options = { encoding: 'utf8', flag: 'w' };
+    } else if(typeof options === "string") {
+      options = { encoding: options, flag: 'w' };
+    }
+
+    var flags = validate_flags(options.flag || 'w');
+    if(!flags) {
+      callback(new EInvalid('flags is not valid'));
+    }
+
+    if(typeof data === "string" && options.encoding === 'utf8') {
+      data = new TextEncoder('utf-8').encode(data);
+    }
+
+    open_file(context, path, flags, function(err, fileNode) {
+      if(err) {
+        return callback(err);
+      }
+      var ofd = new OpenFileDescription(fileNode.id, flags, 0);
+      var fd = fs.allocDescriptor(ofd);
+
+      write_data(context, ofd, data, 0, data.length, 0, function(err2, nbytes) {
+        if(err2) {
+          return callback(err2);
         }
+        fs.releaseDescriptor(fd);
+        callback(null);
+      });
+    });
+  }
 
-        var ofd = that.openFiles[fd];
+  function _getxattr(path, name, callback) {
+    // TODO
+  }
 
-        if(!ofd) {
-          deferred.reject(new EBadFileDescriptor('invalid file descriptor'));
-        } else if(!_(ofd.flags).contains(O_WRITE)) {
-          deferred.reject(new EBadFileDescriptor('descriptor does not permit writing'));
-        } else if(buffer.length - offset < length) {
-          deferred.reject(new EIO('intput buffer is too small'));
+  function _setxattr(path, name, value, callback) {
+    // TODO
+  }
+
+  function _lseek(fs, context, fd, offset, whence, callback) {
+    function check_result(error, offset) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(offset);
+      }
+    }
+
+    function update_descriptor_position(error, stats) {
+      if(error) {
+        callback(error);
+      } else {
+        if(stats.size + offset < 0) {
+          callback(new EInvalid('resulting file offset would be negative'));
         } else {
-          write_data(files, ofd, buffer, offset, length, position, check_result);
+          ofd.position = stats.size + offset;
+          callback(null, ofd.position);
         }
+      }
+    }
 
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
+    var ofd = fs.openFiles[fd];
+
+    if(!ofd) {
+      callback(new EBadFileDescriptor('invalid file descriptor'));
+    }
+
+    if('SET' === whence) {
+      if(offset < 0) {
+        callback(new EInvalid('resulting file offset would be negative'));
+      } else {
+        ofd.position = offset;
+        callback(null, ofd.position);
+      }
+    } else if('CUR' === whence) {
+      if(ofd.position + offset < 0) {
+        callback(new EInvalid('resulting file offset would be negative'));
+      } else {
+        ofd.position += offset;
+        callback(null, ofd.position);
+      }
+    } else if('END' === whence) {
+      fstat_file(context, ofd, update_descriptor_position);
+    } else {
+      callback(new EInvalid('whence argument is not a proper value'));
+    }
+  }
+
+  function _readdir(context, path, callback) {
+    function check_result(error, files) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, files);
+      }
+    }
+
+    read_directory(context, path, check_result);
+  }
+
+  function _utimes(path, atime, mtime, callback) {
+    // TODO
+  }
+
+  function _rename(context, oldpath, newpath, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    function unlink_old_node(error) {
+      if(error) {
+        callback(error);
+      } else {
+        unlink_node(context, oldpath, check_result);
+      }
+    }
+
+    link_node(context, oldpath, newpath, unlink_old_node);
+  }
+
+  function _symlink(context, srcpath, dstpath, callback) {
+    function check_result(error) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null);
+      }
+    }
+
+    make_symbolic_link(context, srcpath, dstpath, check_result);
+  }
+
+  function _readlink(context, path, callback) {
+    function check_result(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        callback(null, result);
+      }
+    }
+
+    read_link(context, path, check_result);
+  }
+
+  function _realpath(fd, length, callback) {
+    // TODO
+  }
+
+  function _lstat(fs, context, path, callback) {
+    function check_result(error, result) {
+      if(error) {
+        callback(error);
+      } else {
+        var stats = new Stats(result, fs.name);
+        callback(null, stats);
+      }
+    }
+
+    lstat_file(context, path, check_result);
+  }
+
+  function _truncate(path, length, callback) {
+    // TODO
+  }
+
+  function _ftruncate(fd, length, callback) {
+    // TODO
+  }
+
+
+  /**
+   * Public API for FileSystem
+   */
+
+  FileSystem.prototype.open = function(path, flags, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
       function() {
-        callback(new EFileSystemError('unknown error'));
+        var context = fs.provider.getReadWriteContext();
+        _open(fs, context, path, flags, callback);
       }
     );
+    if(error) callback(error);
   };
-  FileSystem.prototype.writeFile = function writeFile(path, data, options, callback) {
-    var that = this;
-    this.promise.then(
+  FileSystem.prototype.close = function(fd, callback) {
+    _close(this, fd, callback);
+  };
+  FileSystem.prototype.mkdir = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
       function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        if(!options) {
-          options = { encoding: 'utf8', flag: 'w' };
-        } else if(typeof options === "function") {
-          callback = options;
-          options = { encoding: 'utf8', flag: 'w' };
-        } else if(typeof options === "string") {
-          options = { encoding: options, flag: 'w' };
-        }
-
-        var flags = validate_flags(options.flag || 'w');
-        if(!flags) {
-          deferred.reject(new EInvalid('flags is not valid'));
-        }
-
-        if(typeof data === "string" && options.encoding === 'utf8') {
-          data = new TextEncoder('utf-8').encode(data);
-        }
-
-        open_file(that, files, path, flags, function(err, fileNode) {
-          if(err) {
-            // TODO: abort transaction?
-            return deferred.reject(err);
-          }
-          var ofd = new OpenFileDescription(fileNode.id, flags, 0);
-          var fd = that._allocate_descriptor(ofd);
-
-          write_data(files, ofd, data, 0, data.length, 0, function(err2, nbytes) {
-            if(err2) {
-              // TODO: abort transaction?
-              return deferred.reject(err2);
-            }
-            that._release_descriptor(fd);
-            deferred.resolve();
-          });
-        });
-
-        deferred.promise.then(
-          function() {
-            callback(undefined);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+        var context = fs.provider.getReadWriteContext();
+        _mkdir(context, path, callback);
       }
     );
+    if(error) callback(error);
   };
-  FileSystem.prototype.getxattr = function getxattr(path, name, callback) {
-
-  };
-  FileSystem.prototype.setxattr = function setxattr(path, name, value, callback) {
-
-  };
-  FileSystem.prototype.lseek = function lseek(fd, offset, whence, callback) {
-    var that = this;
-    this.promise.then(
+  FileSystem.prototype.rmdir = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
       function() {
-        var deferred = when.defer();
-
-        function check_result(error, offset) {
-          if(error) {
-            deferred.reject(error);
-          } else {
-            deferred.resolve(offset);
-          }
-        }
-
-        function update_descriptor_position(error, stats) {
-          if(error) {
-            deferred.reject(error);
-          } else {
-            if(stats.size + offset < 0) {
-              deferred.reject(new EInvalid('resulting file offset would be negative'));
-            } else {
-              ofd.position = stats.size + offset;
-              deferred.resolve(ofd.position);
-            }
-          }
-        }
-
-        var ofd = that.openFiles[fd];
-
-        if(!ofd) {
-          deferred.reject(new EBadFileDescriptor('invalid file descriptor'));
-        }
-
-        if('SET' === whence) {
-          if(offset < 0) {
-            deferred.reject(new EInvalid('resulting file offset would be negative'));
-          } else {
-            ofd.position = offset;
-            deferred.resolve(ofd.position);
-          }
-        } else if('CUR' === whence) {
-          if(ofd.position + offset < 0) {
-            deferred.reject(new EInvalid('resulting file offset would be negative'));
-          } else {
-            ofd.position += offset;
-            deferred.resolve(ofd.position);
-          }
-        } else if('END' === whence) {
-          var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-          var files = transaction.objectStore(FILE_STORE_NAME);
-
-          fstat_file(files, ofd, update_descriptor_position);
-        } else {
-          deferred.reject(new EInvalid('whence argument is not a proper value'));
-        }
-
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+        var context = fs.provider.getReadWriteContext();
+        _rmdir(context, path, callback);
       }
     );
+    if(error) callback(error);
   };
-  FileSystem.prototype.readdir = function readdir(path, callback) {
-    var that = this;
-    this.promise.then(
+  FileSystem.prototype.stat = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
       function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        function check_result(error, files) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve(files);
-          }
-        }
-
-        read_directory(files, path, check_result);
-
-        deferred.promise.then(
-          function(result) {
-            callback(undefined, result);
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+        var context = fs.provider.getReadWriteContext();
+        _stat(context, fs.name, path, callback);
       }
     );
+    if(error) callback(error);
   };
-  FileSystem.prototype.utimes = function utimes(path, atime, mtime, callback) {
-
-  };
-  FileSystem.prototype.rename = function rename(oldpath, newpath, callback) {
-    var that = this;
-    this.promise.then(
+  FileSystem.prototype.fstat = function(fd, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
       function() {
-        var deferred = when.defer();
-        var transaction = that.db.transaction([FILE_STORE_NAME], IDB_RW);
-        var files = transaction.objectStore(FILE_STORE_NAME);
-
-        link_node(files, oldpath, newpath, unlink_old_node);
-
-        function unlink_old_node(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            unlink_node(files, oldpath, check_result);
-          }
-        }
-
-        function check_result(error) {
-          if(error) {
-            // if(transaction.error) transaction.abort();
-            deferred.reject(error);
-          } else {
-            deferred.resolve();
-          }
-        }
-
-        deferred.promise.then(
-          function(result) {
-            callback();
-          },
-          function(error) {
-            callback(error);
-          }
-        );
-      },
-      function() {
-        callback(new EFileSystemError('unknown error'));
+        var context = fs.provider.getReadWriteContext();
+        _fstat(fs, context, fd, callback);
       }
     );
+    if(error) callback(error);
   };
-  FileSystem.prototype.truncate = function truncate(path, length, callback) {
-
+  FileSystem.prototype.link = function(oldpath, newpath, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _link(context, oldpath, newpath, callback);
+      }
+    );
+    if(error) callback(error);
   };
-  FileSystem.prototype.ftruncate = function ftruncate(fd, length, callback) {
-
+  FileSystem.prototype.unlink = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _unlink(context, path, callback);
+      }
+    );
+    if(error) callback(error);
   };
-  FileSystem.prototype.symlink = function symlink(fd, length, callback) {
-
+  FileSystem.prototype.read = function(fd, buffer, offset, length, position, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _read(fs, context, fd, buffer, offset, length, position, callback);
+      }
+    );
+    if(error) callback(error);
   };
-  FileSystem.prototype.readlink = function readlink(fd, length, callback) {
-
+  FileSystem.prototype.readFile = function(path, options, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _readFile(fs, context, path, options, callback);
+      }
+    );
+    if(error) callback(error);
   };
-  FileSystem.prototype.realpath = function realpath(fd, length, callback) {
+  FileSystem.prototype.write = function(fd, buffer, offset, length, position, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _write(fs, context, fd, buffer, offset, length, position, callback);
+      }
+    );
 
+    if(error) callback(error);
   };
-  FileSystem.prototype.lstat = function lstat(fd, length, callback) {
-
+  FileSystem.prototype.writeFile = function(path, data, options, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _writeFile(fs, context, path, data, options, callback);
+      }
+    );
+    if(error) callback(error);
   };
-
+  FileSystem.prototype.lseek = function(fd, offset, whence, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _lseek(fs, context, fd, offset, whence, callback);
+      }
+    );
+    if(error) callback(error);
+  };
+  FileSystem.prototype.readdir = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _readdir(context, path, callback);
+      }
+    );
+    if(error) callback(error);
+  };
+  FileSystem.prototype.rename = function(oldpath, newpath, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _rename(context, oldpath, newpath, callback);
+      }
+    );
+    if(error) callback(error);
+  };
+  FileSystem.prototype.readlink = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _readlink(context, path, callback);
+      }
+    );
+    if(error) callback(error);
+  };
+  FileSystem.prototype.symlink = function(srcpath, dstpath, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _symlink(context, srcpath, dstpath, callback);
+      }
+    );
+    if(error) callback(error);
+  };
+  FileSystem.prototype.lstat = function(path, callback) {
+    var fs = this;
+    var error = fs.queueOrRun(
+      function() {
+        var context = fs.provider.getReadWriteContext();
+        _lstat(fs, context, path, callback);
+      }
+    );
+    if(error) callback(error);
+  };
 
   return {
     FileSystem: FileSystem
   };
 
 });
+
   var IDBFS = require( "src/fs" );
 
   return IDBFS;
