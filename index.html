@@ -39,7 +39,7 @@
 </ul><h3>
 <a name="contributing" class="anchor" href="#contributing"><span class="octicon octicon-link"></span></a>Contributing</h3>
 
-<p>The best way to get started is to read through the <code>Getting Started</code> and <code>Example</code> sections before having a look through the open <a href="https://github.com/js-platform/idbfs/issues">issues</a>. Some of the issues are marked as <code>good first bug</code>, but feel free to contribute to any of the issues there, or open a new one if the thing you want to work on isn't there yet.</p>
+<p>The best way to get started is to read through the <code>Getting Started</code> and <code>Example</code> sections before having a look through the open <a href="https://github.com/js-platform/idbfs/issues">issues</a>. Some of the issues are marked as <code>good first bug</code>, but feel free to contribute to any of the issues there, or open a new one if the thing you want to work on isn't there yet. If you would like to have an issue assigned to you, please send me a message and I'll update it.</p>
 
 <p>Once you've done some hacking and you'd like to have your work merged, you'll need to make a pull request. If you're patch includes code, make sure to check that all the unit tests pass, including any new tests you wrote. Finally, make sure you add yourself to the <code>AUTHORS</code> file.</p>
 
@@ -110,29 +110,34 @@
 <p>Asynchronous stat(2). Callback gets <code>(error, stats)</code>. See <code>fs.stat</code>.</p>
 
 <h4>
-<a name="fslinkoldpath-newpath-callback" class="anchor" href="#fslinkoldpath-newpath-callback"><span class="octicon octicon-link"></span></a>fs.link(oldpath, newpath, callback)</h4>
+<a name="fslinksrcpath-dstpath-callback" class="anchor" href="#fslinksrcpath-dstpath-callback"><span class="octicon octicon-link"></span></a>fs.link(srcPath, dstPath, callback)</h4>
 
-<p>Asynchronous link(2). Callback gets no additional agruments.</p>
+<p>Asynchronous link(2). Callback gets no additional arguments.</p>
 
 <h4>
 <a name="fsunlinkpath-callback" class="anchor" href="#fsunlinkpath-callback"><span class="octicon octicon-link"></span></a>fs.unlink(path, callback)</h4>
 
-<p>Asynchronous unlink(2). Callback gets no additional agruments.</p>
+<p>Asynchronous unlink(2). Callback gets no additional arguments.</p>
+
+<h4>
+<a name="fsrenameoldpath-newpath-callback" class="anchor" href="#fsrenameoldpath-newpath-callback"><span class="octicon octicon-link"></span></a>fs.rename(oldPath, newPath, callback)</h4>
+
+<p>Asynchronous rename(2). Callback gets no additional arguments.</p>
 
 <h4>
 <a name="fsrmdirpath-callback" class="anchor" href="#fsrmdirpath-callback"><span class="octicon octicon-link"></span></a>fs.rmdir(path, callback)</h4>
 
-<p>Asynchronous rmdir(2). Callback gets no additional agruments.</p>
+<p>Asynchronous rmdir(2). Callback gets no additional arguments.</p>
 
 <h4>
 <a name="fsmkdirpath-callback" class="anchor" href="#fsmkdirpath-callback"><span class="octicon octicon-link"></span></a>fs.mkdir(path, callback)</h4>
 
-<p>Asynchronous mkdir(2). Callback gets no additional agruments.</p>
+<p>Asynchronous mkdir(2). Callback gets no additional arguments.</p>
 
 <h4>
 <a name="fsclosefd-callback" class="anchor" href="#fsclosefd-callback"><span class="octicon octicon-link"></span></a>fs.close(fd, callback)</h4>
 
-<p>Asynchronous close(2). Callback gets no additional agruments.</p>
+<p>Asynchronous close(2). Callback gets no additional arguments.</p>
 
 <h4>
 <a name="fsopenpath-flags-callback" class="anchor" href="#fsopenpath-flags-callback"><span class="octicon octicon-link"></span></a>fs.open(path, flags, callback)</h4>
@@ -164,11 +169,45 @@
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes written.</p>
 
 <h4>
+<a name="fswritefilefilename-data-options-callback" class="anchor" href="#fswritefilefilename-data-options-callback"><span class="octicon octicon-link"></span></a>fs.writeFile(filename, data, [options], callback)</h4>
+
+<p>Asynchronously writes data to a file. <code>data</code> can be a string or a buffer, in which case any encoding option is ignored. The <code>options</code> argument is optional, and can take the form <code>"utf8"</code> (i.e., an encoding) or be an object literal: <code>{ encoding: "utf8", flag: "w" }</code>. If no encoding is specified, and <code>data</code> is a string, the encoding defaults to <code>'utf8'</code>.  The callback gets <code>(error)</code>.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// Write UTF8 text file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">writeFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="s2">"...data..."</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+<span class="p">});</span>
+
+<span class="c1">// Write binary file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">writeFile</span><span class="p">(</span><span class="s1">'/myfile'</span><span class="p">,</span> <span class="nx">buffer</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+<span class="p">});</span>
+</pre></div>
+
+<h4>
 <a name="fsreadfd-buffer-offset-length-position-callback" class="anchor" href="#fsreadfd-buffer-offset-length-position-callback"><span class="octicon octicon-link"></span></a>fs.read(fd, buffer, offset, length, position, callback)</h4>
 
 <p>Read bytes from the file specified by <code>fd</code> into <code>buffer</code>, where <code>offset</code> and <code>length</code> describe the part of the buffer to be used. The <code>position</code> refers to the offset from the beginning of the file where this data should be read. If <code>position</code> is <code>null</code>, the data will be written at the current position. See pread(2).</p>
 
 <p>The callback gets <code>(error, nbytes)</code>, where <code>nbytes</code> is the number of bytes read.</p>
+
+<h4>
+<a name="fsreadfilefilename-options-callback" class="anchor" href="#fsreadfilefilename-options-callback"><span class="octicon octicon-link"></span></a>fs.readFile(filename, [options], callback)</h4>
+
+<p>Asynchronously reads the entire contents of a file. The <code>options</code> argument is optional, and can take the form <code>"utf8"</code> (i.e., an encoding) or be an object literal: <code>{ encoding: "utf8", flag: "r" }</code>. If no encoding is specified, the raw binary buffer is returned on the callback. The callback gets <code>(error, data)</code>, where data is the contents of the file.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// Read UTF8 text file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="s1">'utf8'</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="c1">// Read binary file</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="s1">'/myfile.txt'</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
 
 <h4>
 <a name="fslseekfd-offset-whence-callback" class="anchor" href="#fslseekfd-offset-whence-callback"><span class="octicon octicon-link"></span></a>fs.lseek(fd, offset, whence, callback)</h4>
@@ -190,7 +229,17 @@
       </footer>
     </div>
 
-    
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-45767870-2");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
 
   </body>
 </html>
