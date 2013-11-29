@@ -31,19 +31,57 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <p>IDBFS is provides a POSIX-like file system interface for browser-based JavaScript.</p>
+        <h3>
+<a name="idbfs" class="anchor" href="#idbfs"><span class="octicon octicon-link"></span></a>IDBFS</h3>
+
+<p>IDBFS is a POSIX-like file system interface for browser-based JavaScript.
+The API is as close to the node.js <a href="http://nodejs.org/api/fs.html">fs module</a> as possible
+with the following differences:</p>
 
 <ul>
-<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.js">idbfs.js</a></li>
-<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.min.js">idbfs.min.js</a></li>
+<li>No synchronous versions of methods (e.g., <code>mkdir()</code> but not <code>mkdirSync()</code>).</li>
+<li>No permissions (e.g., no <code>chown()</code>, <code>chmod()</code>, etc.).</li>
+<li>No support (yet) for <code>fs.watchFile()</code>, <code>fs.unwatchFile()</code>, <code>fs.watch()</code>.</li>
+<li>No support for stream-based operations (e.g., <code>fs.ReadStream</code>, <code>fs.WriteStream</code>).</li>
 </ul><h3>
 <a name="contributing" class="anchor" href="#contributing"><span class="octicon octicon-link"></span></a>Contributing</h3>
 
 <p>The best way to get started is to read through the <code>Getting Started</code> and <code>Example</code> sections before having a look through the open <a href="https://github.com/js-platform/idbfs/issues">issues</a>. Some of the issues are marked as <code>good first bug</code>, but feel free to contribute to any of the issues there, or open a new one if the thing you want to work on isn't there yet. If you would like to have an issue assigned to you, please send me a message and I'll update it.</p>
 
-<p>Once you've done some hacking and you'd like to have your work merged, you'll need to make a pull request. If you're patch includes code, make sure to check that all the unit tests pass, including any new tests you wrote. Finally, make sure you add yourself to the <code>AUTHORS</code> file.</p>
+<p>The build system is based on <a href="http://gruntjs.com/">grunt</a>. To get a working build system
+do the following:</p>
+
+<pre><code>npm install
+npm install -g grunt-cli
+</code></pre>
+
+<p>You can now run the following grunt tasks:</p>
+
+<ul>
+<li>
+<code>grunt check</code> will run <a href="http://www.jshint.com/">JSHint</a> on your code (do this before submitting a pull request) to catch errors</li>
+<li>
+<code>grunt develop</code> will create a single file version of the library for testing in <code>dist/idbfs.js</code>
+</li>
+<li>
+<code>grunt release</code> like <code>develop</code> but will also create a minified version of the library in <code>dist/idbfs.min.js</code>
+</li>
+</ul><p>Once you've done some hacking and you'd like to have your work merged, you'll need to make a pull request. If you're patch includes code, make sure to check that all the unit tests pass, including any new tests you wrote. Finally, make sure you add yourself to the <code>AUTHORS</code> file.</p>
+
+<h4>
+<a name="tests" class="anchor" href="#tests"><span class="octicon octicon-link"></span></a>Tests</h4>
+
+<p>You can run the tests from the project by opening the <code>tests</code> directory in your browser. You can also run them <a href="http://js-platform.github.io/idbfs/tests/">here</a>.</p>
 
 <h3>
+<a name="downloading" class="anchor" href="#downloading"><span class="octicon octicon-link"></span></a>Downloading</h3>
+
+<p>Pre-built versions of the library are available in the repo:</p>
+
+<ul>
+<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.js">idbfs.js</a></li>
+<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.min.js">idbfs.min.js</a></li>
+</ul><h3>
 <a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>Getting Started</h3>
 
 <p>IDBFS is partly based on the <code>fs</code> module from node.js. The API is asynchronous and most methods require the caller to provide a callback function. Errors are passed to callbacks through the first parameter.</p>
@@ -55,53 +93,112 @@
 <h4>
 <a name="example" class="anchor" href="#example"><span class="octicon octicon-link"></span></a>Example</h4>
 
-<pre><code>&lt;script&gt;
-  var fs = new IDBFS.FileSystem('local');
-  fs.open('/myfile', 'w+', function(err, fd) {
-    if (err) throw err;
-    fs.close(fd, function(err) {
-      if (err) throw err;
-      fs.stat('/myfile', function(err, stats) {
-        if (err) throw err;
-        console.log('stats: ' + JSON.stringify(stats));
-      });
-    });
-  });
-&lt;/script&gt;
-</code></pre>
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">fs</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">FileSystem</span><span class="p">();</span>
+<span class="nx">fs</span><span class="p">.</span><span class="nx">open</span><span class="p">(</span><span class="s1">'/myfile'</span><span class="p">,</span> <span class="s1">'w+'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">fd</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="nx">fs</span><span class="p">.</span><span class="nx">close</span><span class="p">(</span><span class="nx">fd</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+    <span class="nx">fs</span><span class="p">.</span><span class="nx">stat</span><span class="p">(</span><span class="s1">'/myfile'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">stats</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">'stats: '</span> <span class="o">+</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">stats</span><span class="p">));</span>
+    <span class="p">});</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</pre></div>
 
 <p>As with node.js, there is no guarantee that file system operations will be executed in the order they are invoked. Ensure proper ordering by chaining operations in callbacks.</p>
 
 <h3>
-<a name="tests" class="anchor" href="#tests"><span class="octicon octicon-link"></span></a>Tests</h3>
-
-<p>You can run the tests from the project by opening the <code>tests</code> directory in your browser. You can also run them <a href="http://js-platform.github.io/idbfs/tests/">here</a>.</p>
-
-<h3>
 <a name="api-reference" class="anchor" href="#api-reference"><span class="octicon octicon-link"></span></a>API Reference</h3>
 
-<p>Callbacks for methods that accept them are non-optional. The first callback parameter is reserved for passing errors. It will be <code>undefined</code> if no errors occurred and should always be checked.</p>
+<p>Like node.js, callbacks for methods that accept them are optional but suggested. The first callback parameter is reserved for passing errors. It will be <code>null</code> if no errors occurred and should always be checked.</p>
 
 <h4>
-<a name="idbfsfilesystemname-flags" class="anchor" href="#idbfsfilesystemname-flags"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem(name, flags)</h4>
+<a name="idbfsfilesystemoptions-callback" class="anchor" href="#idbfsfilesystemoptions-callback"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem(options, callback)</h4>
 
-<p>File system constructor, invoked to open an existing file system or create a new one. Accepts a name and optional flags. Use <code>'FORMAT'</code> to force IDBFS for format the file system.</p>
+<p>File system constructor, invoked to open an existing file system or create a new one. Accepts two arguments: an <code>options</code> object,
+and an optional <code>callback</code>.  The <code>options</code> object can specify a number of optional arguments, including:</p>
+
+<ul>
+<li>
+<code>name</code>: the name of the file system, defaults to "local"</li>
+<li>
+<code>flags</code>: one or more flags to use when creating/opening the file system. Use <code>'FORMAT'</code> to force IDBFS to format (i.e., erase) the file system</li>
+<li>
+<code>provider</code>: an explicit storage provider to use for the file system's database context provider.  See below for details</li>
+</ul><p>The <code>callback</code> function indicates when the file system is ready for use. Depending on the storage provider used, this might
+be right away, or could take some time. The callback should expect an <code>error</code> argument, which will be null if everything worked.
+Also users should check the file system's <code>readyState</code> and <code>error</code> properties to make sure it is usable.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">fs</span><span class="p">;</span>
+
+<span class="kd">function</span> <span class="nx">fsReady</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">err</span><span class="p">;</span>
+  <span class="c1">// Safe to use fs now...</span>
+<span class="p">}</span>
+
+<span class="nx">fs</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">FileSystem</span><span class="p">({</span>
+  <span class="nx">name</span><span class="o">:</span> <span class="s2">"my-filesystem"</span><span class="p">,</span>
+  <span class="nx">flags</span><span class="o">:</span> <span class="s1">'FORMAT'</span><span class="p">,</span>
+  <span class="nx">provider</span><span class="o">:</span> <span class="k">new</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">FileSystem</span><span class="p">.</span><span class="nx">providers</span><span class="p">.</span><span class="nx">Memory</span><span class="p">()</span>
+<span class="p">},</span> <span class="nx">fsReady</span><span class="p">);</span>
+</pre></div>
+
+<h3>
+<a name="idbfsfilesystemproviders---storage-providers" class="anchor" href="#idbfsfilesystemproviders---storage-providers"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem.providers - Storage Providers</h3>
+
+<p>IDBFS can be configured to use a number of different storage providers. The provider object encapsulates all aspects
+of data access, making it possible to swap in different backend storage options.  There are currently 4 different
+providers to choose from:</p>
+
+<ul>
+<li>
+<code>FileSystem.providers.IndexedDB()</code> - uses IndexedDB</li>
+<li>
+<code>FileSystem.providers.WebSQL()</code> - uses WebSQL</li>
+<li>
+<code>FileSystem.providers.Fallback()</code> - attempts to use IndexedDB if possible, falling-back to WebSQL if necessary</li>
+<li>
+<code>FileSystem.providers.Memory()</code> - uses memory (not suitable for data that needs to survive the current session)</li>
+</ul><p>You can choose your provider when creating a <code>FileSystem</code>:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">FileSystem</span> <span class="o">=</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">FileSystem</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">providers</span> <span class="o">=</span> <span class="nx">FileSystem</span><span class="p">.</span><span class="nx">providers</span><span class="p">;</span>
+
+<span class="c1">// Example 1: Use the default provider (currently IndexedDB)</span>
+<span class="kd">var</span> <span class="nx">fs1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileSystem</span><span class="p">();</span>
+
+<span class="c1">// Example 2: Explicitly use IndexedDB</span>
+<span class="kd">var</span> <span class="nx">fs2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileSystem</span><span class="p">({</span> <span class="nx">provider</span><span class="o">:</span> <span class="k">new</span> <span class="nx">providers</span><span class="p">.</span><span class="nx">IndexedDB</span><span class="p">()</span> <span class="p">});</span>
+
+<span class="c1">// Example 3: Use one of IndexedDB or WebSQL, whichever is supported</span>
+<span class="kd">var</span> <span class="nx">fs3</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileSystem</span><span class="p">({</span> <span class="nx">provider</span><span class="o">:</span> <span class="k">new</span> <span class="nx">providers</span><span class="p">.</span><span class="nx">Fallback</span><span class="p">()</span> <span class="p">});</span>
+</pre></div>
+
+<p>Every provider has an <code>isSupported()</code> method, which returns <code>true</code> if the browser supports this provider:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="k">if</span><span class="p">(</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">FileSystem</span><span class="p">.</span><span class="nx">providers</span><span class="p">.</span><span class="nx">WebSQL</span><span class="p">.</span><span class="nx">isSupported</span><span class="p">()</span> <span class="p">)</span> <span class="p">{</span>
+  <span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
+
+<p>You can also write your own provider if you need a different backend. See the code in <code>src/providers</code> for details.</p>
 
 <h4>
 <a name="fsstatpath-callback" class="anchor" href="#fsstatpath-callback"><span class="octicon octicon-link"></span></a>fs.stat(path, callback)</h4>
 
 <p>Asynchronous stat(2). Callback gets <code>(error, stats)</code>, where <code>stats</code> is an object like</p>
 
-<pre><code>    {
-      node: &lt;string&gt; // internal node id (unique)
-      dev: &lt;string&gt; // file system name
-      size: &lt;number&gt; // file size in bytes
-      nlinks: &lt;number&gt; // number of links
-      atime: &lt;number&gt; // last access time
-      mtime: &lt;number&gt; // last modified time
-      ctime: &lt;number&gt; // creation time
-      type: &lt;string&gt; // file type (FILE, DIRECTORY, ...)
-    }
+<pre><code>{
+  node: &lt;string&gt; // internal node id (unique)
+  dev: &lt;string&gt; // file system name
+  size: &lt;number&gt; // file size in bytes
+  nlinks: &lt;number&gt; // number of links
+  atime: &lt;number&gt; // last access time
+  mtime: &lt;number&gt; // last modified time
+  ctime: &lt;number&gt; // creation time
+  type: &lt;string&gt; // file type (FILE, DIRECTORY, ...)
+}
 </code></pre>
 
 <h4>
@@ -218,6 +315,23 @@
 <a name="fsreaddirpath-callback" class="anchor" href="#fsreaddirpath-callback"><span class="octicon octicon-link"></span></a>fs.readdir(path, callback)</h4>
 
 <p>Asynchronous readdir(3). Reads the contents of a directory. Callback gets <code>(error, files)</code>, where <code>files</code> is an array containing the names of each file in the directory, excluding <code>.</code> and <code>..</code>.</p>
+
+<h4>
+<a name="fssymlinksrcpath-dstpath-callback" class="anchor" href="#fssymlinksrcpath-dstpath-callback"><span class="octicon octicon-link"></span></a>fs.symlink(srcPath, dstPath, callback)</h4>
+
+<p>Asynchronous symlink(2). Callback gets no additional arguments.</p>
+
+<p>Unlike node.js, IDBFS does not accept the optional <code>type</code> parameter.</p>
+
+<h4>
+<a name="fsreadlinkpath-callback" class="anchor" href="#fsreadlinkpath-callback"><span class="octicon octicon-link"></span></a>fs.readlink(path, callback)</h4>
+
+<p>Asynchronous readlink(2). Callback gets <code>(error, linkContents)</code>, where <code>linkContents</code> is a string containing the path to which the symbolic link links to.</p>
+
+<h4>
+<a name="fslstatpath-callback" class="anchor" href="#fslstatpath-callback"><span class="octicon octicon-link"></span></a>fs.lstat(path, callback)</h4>
+
+<p>Asynchronous lstat(2). Callback gets <code>(error, stats)</code>, See <code>fs.stat</code>.</p>
       </section>
     </div>
 
