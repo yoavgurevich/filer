@@ -4,11 +4,11 @@
   <head>
     <meta charset='utf-8' />
     <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="IDBFS : IndexedDB file system" />
+    <meta name="description" content="Filer : Node-like file system for browsers" />
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-    <title>IDBFS</title>
+    <title>Filer</title>
   </head>
 
   <body>
@@ -16,14 +16,14 @@
     <!-- HEADER -->
     <div id="header_wrap" class="outer">
         <header class="inner">
-          <a id="forkme_banner" href="https://github.com/js-platform/idbfs">View on GitHub</a>
+          <a id="forkme_banner" href="https://github.com/js-platform/filer">View on GitHub</a>
 
-          <h1 id="project_title">IDBFS</h1>
-          <h2 id="project_tagline">IndexedDB file system</h2>
+          <h1 id="project_title">Filer</h1>
+          <h2 id="project_tagline">Node-like file system for browsers</h2>
 
             <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/js-platform/idbfs/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/js-platform/idbfs/tarball/master">Download this project as a tar.gz file</a>
+              <a class="zip_download_link" href="https://github.com/js-platform/filer/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/js-platform/filer/tarball/master">Download this project as a tar.gz file</a>
             </section>
         </header>
     </div>
@@ -32,9 +32,9 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h3>
-<a name="idbfs" class="anchor" href="#idbfs"><span class="octicon octicon-link"></span></a>IDBFS</h3>
+<a name="filer" class="anchor" href="#filer"><span class="octicon octicon-link"></span></a>Filer</h3>
 
-<p>IDBFS is a POSIX-like file system interface for browser-based JavaScript.
+<p>Filer is a POSIX-like file system interface for browser-based JavaScript.
 The API is as close to the node.js <a href="http://nodejs.org/api/fs.html">fs module</a> as possible
 with the following differences:</p>
 
@@ -46,7 +46,7 @@ with the following differences:</p>
 </ul><h3>
 <a name="contributing" class="anchor" href="#contributing"><span class="octicon octicon-link"></span></a>Contributing</h3>
 
-<p>The best way to get started is to read through the <code>Getting Started</code> and <code>Example</code> sections before having a look through the open <a href="https://github.com/js-platform/idbfs/issues">issues</a>. Some of the issues are marked as <code>good first bug</code>, but feel free to contribute to any of the issues there, or open a new one if the thing you want to work on isn't there yet. If you would like to have an issue assigned to you, please send me a message and I'll update it.</p>
+<p>The best way to get started is to read through the <code>Getting Started</code> and <code>Example</code> sections before having a look through the open <a href="https://github.com/js-platform/filer/issues">issues</a>. Some of the issues are marked as <code>good first bug</code>, but feel free to contribute to any of the issues there, or open a new one if the thing you want to work on isn't there yet. If you would like to have an issue assigned to you, please send me a message and I'll update it.</p>
 
 <p>The build system is based on <a href="http://gruntjs.com/">grunt</a>. To get a working build system
 do the following:</p>
@@ -79,8 +79,8 @@ npm install -g grunt-cli
 <p>Pre-built versions of the library are available in the repo:</p>
 
 <ul>
-<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.js">idbfs.js</a></li>
-<li><a href="https://raw.github.com/js-platform/idbfs/develop/dist/idbfs.min.js">idbfs.min.js</a></li>
+<li><a href="https://raw.github.com/js-platform/filer/develop/dist/idbfs.js">idbfs.js</a></li>
+<li><a href="https://raw.github.com/js-platform/filer/develop/dist/idbfs.min.js">idbfs.min.js</a></li>
 </ul><h3>
 <a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>Getting Started</h3>
 
@@ -144,8 +144,8 @@ Also users should check the file system's <code>readyState</code> and <code>erro
 <span class="p">},</span> <span class="nx">fsReady</span><span class="p">);</span>
 </pre></div>
 
-<h3>
-<a name="idbfsfilesystemproviders---storage-providers" class="anchor" href="#idbfsfilesystemproviders---storage-providers"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem.providers - Storage Providers</h3>
+<h4>
+<a name="idbfsfilesystemproviders---storage-providers" class="anchor" href="#idbfsfilesystemproviders---storage-providers"><span class="octicon octicon-link"></span></a>IDBFS.FileSystem.providers - Storage Providers</h4>
 
 <p>IDBFS can be configured to use a number of different storage providers. The provider object encapsulates all aspects
 of data access, making it possible to swap in different backend storage options.  There are currently 4 different
@@ -185,6 +185,41 @@ providers to choose from:</p>
 <p>You can also write your own provider if you need a different backend. See the code in <code>src/providers</code> for details.</p>
 
 <h4>
+<a name="idbfspath" class="anchor" href="#idbfspath"><span class="octicon octicon-link"></span></a>IDBFS.Path</h4>
+
+<p>The node.js <a href="http://nodejs.org/api/path.html">path module</a> is available via the <code>IDBFS.Path</code> object. It is
+identical to the node.js version with the following differences:</p>
+
+<ul>
+<li>No support for <code>exits()</code> or <code>existsSync()</code>. Use <code>fs.stat()</code> instead.</li>
+<li>No notion of a current working directory in <code>resolve</code> (the root dir is used instead)</li>
+</ul><div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">path</span> <span class="o">=</span> <span class="nx">IDBFS</span><span class="p">.</span><span class="nx">Path</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">dir</span> <span class="o">=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="s1">'/foo/bar/baz/asdf/quux'</span><span class="p">);</span>
+<span class="c1">// dir is now '/foo/bar/baz/asdf'</span>
+
+<span class="kd">var</span> <span class="nx">base</span> <span class="o">=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">basename</span><span class="p">(</span><span class="s1">'/foo/bar/baz/asdf/quux.html'</span><span class="p">);</span>
+<span class="c1">// base is now 'quux.html'</span>
+
+<span class="kd">var</span> <span class="nx">ext</span> <span class="o">=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">extname</span><span class="p">(</span><span class="s1">'index.html'</span><span class="p">);</span>
+<span class="c1">// ext is now '.html'</span>
+
+<span class="kd">var</span> <span class="nx">newpath</span> <span class="o">=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">'/foo'</span><span class="p">,</span> <span class="s1">'bar'</span><span class="p">,</span> <span class="s1">'baz/asdf'</span><span class="p">,</span> <span class="s1">'quux'</span><span class="p">,</span> <span class="s1">'..'</span><span class="p">);</span>
+<span class="c1">// new path is now '/foo/bar/baz/asdf'</span>
+</pre></div>
+
+<p>For more info see the docs in the <a href="http://nodejs.org/api/path.html">path module</a> for a particular method:</p>
+
+<ul>
+<li><code>path.normalize(p)</code></li>
+<li><code>path.join([path1], [path2], [...])</code></li>
+<li><code>path.resolve([from ...], to)</code></li>
+<li><code>path.relative(from, to)</code></li>
+<li><code>path.dirname(p)</code></li>
+<li><code>path.basename(p, [ext])</code></li>
+<li><code>path.extname(p)</code></li>
+<li><code>path.sep</code></li>
+<li><code>path.delimiter</code></li>
+</ul><h4>
 <a name="fsstatpath-callback" class="anchor" href="#fsstatpath-callback"><span class="octicon octicon-link"></span></a>fs.stat(path, callback)</h4>
 
 <p>Asynchronous stat(2). Callback gets <code>(error, stats)</code>, where <code>stats</code> is an object like</p>
@@ -338,7 +373,7 @@ providers to choose from:</p>
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
       <footer class="inner">
-        <p class="copyright">IDBFS maintained by <a href="https://github.com/js-platform">js-platform</a></p>
+        <p class="copyright">Filer maintained by <a href="https://github.com/js-platform">js-platform</a></p>
         <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
