@@ -1,23 +1,43 @@
 define(["Filer"], function(Filer) {
-  
-  describe("Filer.FileSystem.providers.Memory", function() {
+
+  var WEBSQL_NAME = "websql-test-db";
+
+  function wipeDB(provider) {
+    var context = provider.getReadWriteContext();
+    context.clear(function(err) {
+      if(err) {
+        console.error("Problem clearing WebSQL db: [" + err.code + "] - " + err.message);
+      }
+    });
+  }
+
+  if(!Filer.FileSystem.providers.WebSQL.isSupported()) {
+    console.log("Skipping Filer.FileSystem.providers.WebSQL tests, since WebSQL isn't supported.");
+    return;
+  }
+
+  describe("Filer.FileSystem.providers.WebSQL", function() {
     it("is supported -- if it isn't, none of these tests can run.", function() {
-      expect(Filer.FileSystem.providers.Memory.isSupported()).toEqual(true);
+      expect(Filer.FileSystem.providers.WebSQL.isSupported()).toEqual(true);
     });
 
     it("has open, getReadOnlyContext, and getReadWriteContext instance methods", function() {
-      var indexedDBProvider = new Filer.FileSystem.providers.Memory();
-      expect(typeof indexedDBProvider.open).toEqual('function');
-      expect(typeof indexedDBProvider.getReadOnlyContext).toEqual('function');
-      expect(typeof indexedDBProvider.getReadWriteContext).toEqual('function');
+      var webSQLProvider = new Filer.FileSystem.providers.WebSQL();
+      expect(typeof webSQLProvider.open).toEqual('function');
+      expect(typeof webSQLProvider.getReadOnlyContext).toEqual('function');
+      expect(typeof webSQLProvider.getReadWriteContext).toEqual('function');
     });
 
-    describe("open an Memory provider", function() {
-      it("should open a new Memory database", function() {
+    describe("open an WebSQL provider", function() {
+      afterEach(function() {
+        wipeDB(this.provider);
+      });
+
+      it("should open a new WebSQL database", function() {
         var complete = false;
         var _error, _result;
 
-        var provider = new Filer.FileSystem.providers.Memory(this.db_name);
+        var provider = this.provider = new Filer.FileSystem.providers.WebSQL(WEBSQL_NAME);
         provider.open(function(err, firstAccess) {
           _error = err;
           _result = firstAccess;
@@ -35,12 +55,16 @@ define(["Filer"], function(Filer) {
       });
     });
 
-    describe("Read/Write operations on an Memory provider", function() {
+    describe("Read/Write operations on an WebSQL provider", function() {
+      afterEach(function() {
+        wipeDB(this.provider);
+      });
+
       it("should allow put() and get()", function() {
         var complete = false;
         var _error, _result;
 
-        var provider = new Filer.FileSystem.providers.Memory(this.db_name);
+        var provider = this.provider = new Filer.FileSystem.providers.WebSQL(WEBSQL_NAME);
         provider.open(function(err, firstAccess) {
           _error = err;
 
@@ -70,7 +94,7 @@ define(["Filer"], function(Filer) {
         var complete = false;
         var _error, _result;
 
-        var provider = new Filer.FileSystem.providers.Memory(this.db_name);
+        var provider = this.provider = new Filer.FileSystem.providers.WebSQL(WEBSQL_NAME);
         provider.open(function(err, firstAccess) {
           _error = err;
 
@@ -103,7 +127,7 @@ define(["Filer"], function(Filer) {
         var complete = false;
         var _error, _result1, _result2;
 
-        var provider = new Filer.FileSystem.providers.Memory(this.db_name);
+        var provider = this.provider = new Filer.FileSystem.providers.WebSQL(WEBSQL_NAME);
         provider.open(function(err, firstAccess) {
           _error = err;
 
@@ -147,7 +171,7 @@ define(["Filer"], function(Filer) {
         var complete = false;
         var _error, _result;
 
-        var provider = new Filer.FileSystem.providers.Memory(this.db_name);
+        var provider = this.provider = new Filer.FileSystem.providers.WebSQL(WEBSQL_NAME);
         provider.open(function(err, firstAccess) {
           _error = err;
 
@@ -170,6 +194,7 @@ define(["Filer"], function(Filer) {
         });
       });
     });
+
   });
 
 });

@@ -6,6 +6,8 @@ define(function(require) {
   var O_EXCLUSIVE = 'EXCLUSIVE';
   var O_TRUNCATE = 'TRUNCATE';
   var O_APPEND = 'APPEND';
+  var XATTR_CREATE = 'CREATE';
+  var XATTR_REPLACE = 'REPLACE';
 
   return {
     FILE_SYSTEM_NAME: 'local',
@@ -15,9 +17,14 @@ define(function(require) {
     IDB_RO: 'readonly',
     IDB_RW: 'readwrite',
 
+    WSQL_VERSION: "1",
+    WSQL_SIZE: 5 * 1024 * 1024,
+    WSQL_DESC: "FileSystem Storage",
+
     MODE_FILE: 'FILE',
     MODE_DIRECTORY: 'DIRECTORY',
     MODE_SYMBOLIC_LINK: 'SYMLINK',
+    MODE_META: 'META',
 
     SYMLOOP_MAX: 10,
 
@@ -25,7 +32,6 @@ define(function(require) {
     JSON_MIME_TYPE: 'application/json',
 
     ROOT_DIRECTORY_NAME: '/', // basename(normalize(path))
-    ROOT_NODE_ID: '8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1', // sha256(ROOT_DIRECTORY_NAME)
 
     FS_FORMAT: 'FORMAT',
 
@@ -49,9 +55,14 @@ define(function(require) {
       'ax+': [O_WRITE, O_READ, O_CREATE, O_EXCLUSIVE, O_APPEND]
     },
 
+    XATTR_CREATE: XATTR_CREATE,
+    XATTR_REPLACE: XATTR_REPLACE,
+
     FS_READY: 'READY',
     FS_PENDING: 'PENDING',
-    FS_ERROR: 'ERROR'
+    FS_ERROR: 'ERROR',
+
+    SUPER_NODE_ID: '00000000-0000-0000-0000-000000000000'
   };
 
 });

@@ -5,10 +5,10 @@ define([
    * get them running by default.
    */
 
-  // IDBFS
-  "spec/idbfs.spec",
+  // Filer
+  "spec/filer.spec",
 
-  // IDBFS.FileSystem.*
+  // Filer.FileSystem.*
   "spec/fs.spec",
   "spec/fs.stat.spec",
   "spec/fs.lstat.spec",
@@ -26,12 +26,20 @@ define([
   "spec/fs.lseek.spec",
   "spec/fs.symlink.spec",
   "spec/fs.readlink.spec",
+  "spec/fs.truncate.spec",
+  "spec/fs.utimes.spec",
+  "spec/fs.xattr.spec",
   "spec/path-resolution.spec",
 
-  // IDBFS.FileSystem.providers.*
+  // Filer.FileSystem.providers.*
   "spec/providers/providers.spec",
   "spec/providers/providers.memory.spec",
   "spec/providers/providers.indexeddb.spec",
+  "spec/providers/providers.websql.spec",
+
+  // Filer.FileSystem.adapters.*
+  "spec/adapters/adapters.spec",
+  "spec/adapters/adapters.general.spec",
 
   // Ported node.js tests (filenames match names in https://github.com/joyent/node/tree/master/test)
   "spec/node-js/simple/test-fs-mkdir",

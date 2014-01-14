@@ -1,9 +1,9 @@
-define(["IDBFS"], function(IDBFS) {
+define(["Filer"], function(Filer) {
 
   describe('path resolution', function() {
     beforeEach(function() {
       this.db_name = mk_db_name();
-      this.fs = new IDBFS.FileSystem({
+      this.fs = new Filer.FileSystem({
         name: this.db_name,
         flags: 'FORMAT'
       });
@@ -194,63 +194,32 @@ define(["IDBFS"], function(IDBFS) {
       var complete = false;
       var _error, _result;
       var that = this;
+      var nlinks = 11;
 
-      that.fs.open('/myfile', 'w', function(error, result) {
+      function createSymlinkChain(n, callback) {
+        if(n > nlinks) {
+          return callback();
+        }
+
+        that.fs.symlink('/myfile' + (n-1), '/myfile' + n, createSymlinkChain.bind(this, n+1, callback));
+      }
+
+      that.fs.open('/myfile0', 'w', function(error, result) {
         if(error) throw error;
         var fd = result;
         that.fs.close(fd, function(error) {
           if(error) throw error;
-          that.fs.stat('/myfile', function(error, result) {
+          that.fs.stat('/myfile0', function(error, result) {
             if(error) throw error;
 
-            that.fs.symlink('/myfile', '/myfilelink1', function(error) {
-              if(error) throw error;
-              that.fs.symlink('/myfilelink1', '/myfilelink2', function(error) {
-                if(error) throw error;
-
-                that.fs.symlink('/myfilelink2', '/myfilelink3', function(error) {
-                  if(error) throw error;
-
-                  that.fs.symlink('/myfilelink3', '/myfilelink4', function(error) {
-                    if(error) throw error;
-
-                    that.fs.symlink('/myfilelink4', '/myfilelink5', function(error) {
-                      if(error) throw error;
-
-                      that.fs.symlink('/myfilelink5', '/myfilelink6', function(error) {
-                        if(error) throw error;
-
-                        that.fs.symlink('/myfilelink6', '/myfilelink7', function(error) {
-                          if(error) throw error;
-
-                          that.fs.symlink('/myfilelink7', '/myfilelink8', function(error) {
-                            if(error) throw error;
-
-                            that.fs.symlink('/myfilelink8', '/myfilelink9', function(error) {
-                              if(error) throw error;
-
-                              that.fs.symlink('/myfilelink9', '/myfilelink10', function(error) {
-                                if(error) throw error;
-
-                                that.fs.symlink('/myfilelink10', '/myfilelink11', function(error) {
-                                  if(error) throw error;
-
-                                  that.fs.stat('/myfilelink11', function(error, result) {
-                                    _error = error;
-                                    _result = result;
-                                    complete = true;
-                                  });
-                                });
-                              });
-                            });
-                          });
-                        });
-                      });
-                    });
-                  });
-                });
+            createSymlinkChain(1, function() {
+              that.fs.stat('/myfile11', function(error, result) {
+                _error = error;
+                _result = result;
+                complete = true;
               });
             });
+
           });
         });
       });
@@ -262,6 +231,7 @@ define(["IDBFS"], function(IDBFS) {
       runs(function() {
         expect(_result).not.toBeDefined();
         expect(_error).toBeDefined();
+        expect(_error.name).toEqual('ELoop');
       });
     });
 

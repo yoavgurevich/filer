@@ -8,14 +8,15 @@ require.config({
     "tests": "../tests",
     "src": "../src",
     "spec": "../tests/spec",
-    "IDBFS": "../src/fs"
+    "Filer": "../src/index"
   },
   baseUrl: "../lib",
   optimize: "none",
   shim: {
-    // TextEncoder and TextDecoder shims. encoding-indexes must get loaded first.
+    // TextEncoder and TextDecoder shims. encoding-indexes must get loaded first,
+    // and we use a fake one for reduced size, since we only care about utf8.
     "encoding": {
-      deps: ["encoding-indexes"]
+      deps: ["encoding-indexes-shim"]
     }
   }
 });

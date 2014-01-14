@@ -105,6 +105,13 @@ define(function(require) {
   EFileSystemError.prototype.name = "EFileSystemError";
   EFileSystemError.prototype.constructor = EFileSystemError;
 
+  function ENoAttr(message) {
+    this.message = message || '';
+  }
+  ENoAttr.prototype = new Error();
+  ENoAttr.prototype.name = 'ENoAttr';
+  ENoAttr.prototype.constructor = ENoAttr;
+
   return {
     EExists: EExists,
     EIsDirectory: EIsDirectory,
@@ -117,7 +124,9 @@ define(function(require) {
     ENotMounted: ENotMounted,
     EInvalid: EInvalid,
     EIO: EIO,
-    ELoop: ELoop
+    ELoop: ELoop,
+    EFileSystemError: EFileSystemError,
+    ENoAttr: ENoAttr
   };
 
 });
