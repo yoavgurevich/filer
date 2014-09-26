@@ -498,8 +498,8 @@ fs.link("/data/logs/august", "/data/logs/current", function(err) {
 
 #### fs.exists(path, callback)<a name="exists"></a>
 
-Test whether or not the given path exists by checking with the file system. 
-Then call the callback argument with either true or false. 
+Test whether or not the given path exists by checking with the file system.
+Then call the callback argument with either true or false.
 
 Example:
 
@@ -596,7 +596,7 @@ Example:
 fs.mknod('/dir', 'DIRECTORY', function(err) {
   if(err) throw err;
   // /dir is now created
-  
+
   // Create a file inside /dir
   fs.mknod('/dir/myfile', 'FILE', function(err) {
     if(err) throw err;
@@ -897,7 +897,7 @@ fs.writeFile('/myfile', data, function (err) {
 
   fs.appendFile('/myfile', more, function (err) {
     if (err) throw err;
-    
+
     // '/myfile' would now contain [1, 2, 3, 4, 5, 6, 7, 8]
   });
 });
@@ -1167,6 +1167,7 @@ var sh = fs.Shell();
 * [sh.rm(path, [options], callback)](#rm)
 * [sh.tempDir(callback)](#tempDir)
 * [sh.mkdirp(path, callback)](#mkdirp)
+* [sh.du(path, callback)(#du)]
 
 
 #### sh.cd(path, callback)<a name="cd"></a>
@@ -1360,9 +1361,9 @@ sh.tempDir(function(err, tmp) {
 
 #### sh.mkdirp(path, callback)<a name="mkdirp"></a>
 
-Recursively creates the directory at the provided path. If the 
+Recursively creates the directory at the provided path. If the
 directory already exists, no error is returned. All parents must
-be valid directories (not files). 
+be valid directories (not files).
 
 Example:
 
@@ -1371,5 +1372,28 @@ Example:
 sh.mkdirp('/test/mkdirp', function(err) {
   if(err) throw err;
   // the root '/' now contains a directory 'test' containing the directory 'mkdirp'
+});
+```
+
+#### sh.du(path, callback)<a name="du"></a>
+
+Calculates the disk usage for a directory path,
+file or symbolic link. For symbolic link references,
+use the `symLinks=true` option. For different size
+measurements, add `format=kb|mb|gb`.
+
+Example:
+
+```javascript
+// Existing directory structure
+sh.du('/test/du', function(err, sizes) {
+  if(err) throw err;
+  // the method will return the total size of every nested file, symbolic link, and directory in this structure
+});
+
+// Specify custom size measurement
+sh.du('/test/du', {format: 'kb'}, function(err, sizes) {
+  if(err) throw err;
+  // the method will return the total size of every nested file, symbolic link, and directory in this structure in kilobytes
 });
 ```

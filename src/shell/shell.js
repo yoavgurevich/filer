@@ -426,4 +426,133 @@ Shell.prototype.mkdirp = function(path, callback) {
   _mkdirp(path, callback);
 };
 
+/**
+ * Calculate the disk usage for a directory path,
+ * file or symbolic link. For symbolic link references,
+ * use the `symLinks=true` option. For different size
+ * measurements, add `format=kb|mb|gb`.
+ */
+Shell.prototype.du = function du(path, options, callback) {
+  var sh = this;
+  var fs = sh.fs;
+  var divFactor = 1;
+  var sizes = {};
+
+  sizes.entries = [];
+  sizes.total = 0;
+
+  if(typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+
+  options = options || {};
+  callback = callback || function(){};
+
+  if(!path) {
+    callback(new Errors.EINVAL('Missing path argument'));
+    return;
+  }
+
+  // Configure the format of sizes to be used
+  if(options.format && typeof options.format === 'string') {
+    switch(options.format.toLowerCase()) {
+      case 'kb':
+          divFactor = 1000;
+          break;
+      case 'mb':
+          divFactor = 1000000;
+          break;
+      case 'gb':
+          divFactor = 1000000000;
+          break;
+    }
+  }
+
+  function addSizeEntry(element, isDirectory) {
+    if(!isDirectory){
+      element.size /= divFactor;
+      sizes.total += element.size;
+    }
+    sizes.entries.push(element);
+  }
+
+  function getSymLinkSize() {
+    fs.stat(path, function(err, stats) {
+      if(err) {
+        callback(err);
+        return;
+      }
+
+     addSizeEntry({path: path, size: stats.size});
+      callback(null, sizes);
+    });
+  }
+
+  function getDirSize() {
+    var dirSize = 0;
+
+    function getInputDirSize(entryPath, callback) {
+      entryPath = Path.join(path, entryPath);
+
+      sh.du(entryPath, options, function(err, contentSizes) {
+        if(err) {
+          callback(err);
+          return;
+        }
+
+        if(contentSizes) {
+          sizes.entries = sizes.entries.concat(contentSizes.entries);
+          sizes.total += contentSizes.total;
+          dirSize += contentSizes.total;
+        }
+
+        callback();
+      });
+    }
+
+    fs.readdir(path, function(err, contents) {
+      if(err) {
+        callback(err);
+        return;
+      }
+
+      async.eachSeries(contents, getInputDirSize, function(err, contentSize) {
+        if(err) {
+          callback(err);
+          return;
+        }
+
+        addSizeEntry({path: path, size: dirSize}, true);
+        callback(null, sizes);
+      });
+    });
+  }
+
+  function sizeTotals() {
+    fs.lstat(path, function(err, stats) {
+      if(err) {
+        callback(err);
+        return;
+      }
+
+      if(stats.isDirectory()) {
+        getDirSize();
+        return;
+      }
+
+      if(stats.isSymbolicLink() && options.symLinks) {
+        getSymLinkSize();
+        return;
+      }
+
+      // File or symlink-agnostic
+      addSizeEntry({path: path, size: stats.size});
+      callback(null, sizes);
+    });
+  }
+
+  sizeTotals();
+};
+
 module.exports = Shell;
